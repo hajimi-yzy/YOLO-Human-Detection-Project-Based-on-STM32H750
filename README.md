@@ -1,13 +1,14 @@
 # Human Detection Project Based on STM32H750
 
-基于 STM32H750 的嵌入式人物检测实验项目。工程使用 OV5640 摄像头采集画面，通过 DCMI + DMA 写入帧缓冲，在 LCD 上显示实时画面，并使用 X-CUBE-AI 部署的 NanoV4 96×96 INT8 模型完成人物检测与框选显示。
+基于 STM32H750 的嵌入式人物检测实验项目。工程使用 OV5640 摄像头采集画面，通过 DCMI + DMA 写入帧缓冲，在 LCD 上显示实时画面，并使用 X-CUBE-AI 部署由 YOLOv8n 深度剪枝、INT8 量化得到的 NanoV4 96×96 模型完成人物检测与框选显示。当前板端实测约 8 FPS，仍未进行深度优化。
 
 ## 功能特性
 
 - STM32H750 主控，启用 I-Cache / D-Cache 与 MPU 基础配置。
 - OV5640 摄像头输入，DCMI + DMA 连续采集 RGB565 图像。
 - SPI6 驱动 LCD 显示摄像头画面、FPS、AI 状态和检测框。
-- X-CUBE-AI 10.2 生成的 NanoV4 INT8 推理代码。
+- X-CUBE-AI 10.2 部署由 YOLOv8n 深度剪枝、INT8 量化得到的 NanoV4 96×96 人物检测模型。
+- 当前板端实测约 8 FPS，仍未进行深度优化，后续仍有性能提升空间。
 - Anchor-free / FCOS 风格后处理：质量分数、LTRB 距离、局部极大值、NMS。
 - 运行期调试变量记录帧计数、LCD 刷新计数、AI 次数、推理耗时和 fault 寄存器。
 - `Core/User` 承载摄像头、LCD、AI 调度和后处理逻辑，尽量降低 CubeMX 重新生成时的冲突。
@@ -37,8 +38,10 @@
 
 | 项目 | 参数 |
 | --- | --- |
-| 模型 | `models/nanov4_96_full_int8.tflite` |
+| 模型来源 | YOLOv8n 深度剪枝 + INT8 量化 |
+| 部署模型 | `models/nanov4_96_full_int8.tflite` |
 | ONNX 导出 | `models/nanov4_96.onnx` |
+| 当前性能 | 板端实测约 8 FPS，未深度优化 |
 | 输入 | `int8(1x96x96x3)`，量化 `QLinear(0.003921569, -128)` |
 | 输出 | `int8(1x24x24x5)`，量化 `QLinear(0.071815751, -59)` |
 | 类别 | person |
@@ -105,4 +108,4 @@ shiyan002.ioc               CubeMX 工程配置
 - 本项目包含 STM32 HAL、X-CUBE-AI 生成代码和 ST 中间件文件，请遵守对应软件包许可。
 - 模型文件已随仓库放在 `models/` 中；重新生成 X-CUBE-AI 代码时，可使用 `models/nanov4_96_full_int8.tflite` 或按需从 `models/nanov4_96.onnx` 重新转换。
 - D-Cache 对 DCMI DMA 帧缓冲有影响，修改帧缓冲或 DMA 流程时需要同步检查 cache clean / invalidate 操作。
-- 推理速度、显示帧率和检测稳定性与板卡频率、摄像头配置、LCD 刷新速度及编译优化等级有关，请以实际硬件测试为准。
+- 当前实测性能约 8 FPS，尚未针对模型结构、内存访问、LCD 刷新、摄像头流水线等方向做深度优化。
