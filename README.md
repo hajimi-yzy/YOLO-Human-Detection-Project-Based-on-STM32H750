@@ -37,7 +37,8 @@
 
 | 项目 | 参数 |
 | --- | --- |
-| 模型 | `nanov4_96_full_int8.tflite` |
+| 模型 | `models/nanov4_96_full_int8.tflite` |
+| ONNX 导出 | `models/nanov4_96.onnx` |
 | 输入 | `int8(1x96x96x3)`，量化 `QLinear(0.003921569, -128)` |
 | 输出 | `int8(1x24x24x5)`，量化 `QLinear(0.071815751, -59)` |
 | 类别 | person |
@@ -56,6 +57,7 @@ Core/
 Drivers/                    STM32 HAL / CMSIS 驱动
 Middlewares/ST/AI/          X-CUBE-AI 运行库头文件
 X-CUBE-AI/App/              X-CUBE-AI 生成的网络代码和应用层接口
+models/                     ONNX 原始导出模型与 TFLite INT8 部署模型
 MDK-ARM/                    Keil MDK 工程文件
 shiyan002.ioc               CubeMX 工程配置
 ```
@@ -101,6 +103,6 @@ shiyan002.ioc               CubeMX 工程配置
 ## 注意事项
 
 - 本项目包含 STM32 HAL、X-CUBE-AI 生成代码和 ST 中间件文件，请遵守对应软件包许可。
-- 模型文件路径记录在生成报告和 `.ioc` 中；仓库主要保存已生成的 C 代码，重新生成模型代码时需要准备原始 TFLite 文件。
+- 模型文件已随仓库放在 `models/` 中；重新生成 X-CUBE-AI 代码时，可使用 `models/nanov4_96_full_int8.tflite` 或按需从 `models/nanov4_96.onnx` 重新转换。
 - D-Cache 对 DCMI DMA 帧缓冲有影响，修改帧缓冲或 DMA 流程时需要同步检查 cache clean / invalidate 操作。
 - 推理速度、显示帧率和检测稳定性与板卡频率、摄像头配置、LCD 刷新速度及编译优化等级有关，请以实际硬件测试为准。
