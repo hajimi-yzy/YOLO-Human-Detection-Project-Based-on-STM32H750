@@ -20,7 +20,6 @@
 #include "main.h"
 #include "dcmi.h"
 #include "dma.h"
-#include "i2c.h"
 #include "memorymap.h"
 #include "spi.h"
 #include "usart.h"
@@ -109,7 +108,6 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_DCMI_Init();
-  MX_I2C2_Init();
   MX_SPI6_Init();
   MX_USART1_UART_Init();
   MX_X_CUBE_AI_Init();
@@ -196,25 +194,6 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c)
-{
-  Bh1750_I2cTxCpltCallback(hi2c);
-}
-
-void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c)
-{
-  Bh1750_I2cRxCpltCallback(hi2c);
-}
-
-void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
-{
-  Bh1750_I2cErrorCallback(hi2c);
-}
-
-void HAL_I2C_AbortCpltCallback(I2C_HandleTypeDef *hi2c)
-{
-  Bh1750_I2cErrorCallback(hi2c);
-}
 
 /* USER CODE END 4 */
 

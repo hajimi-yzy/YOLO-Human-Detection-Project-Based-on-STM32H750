@@ -18,10 +18,6 @@ int8_t Bh1750_DayNightTask(void);
 uint16_t Bh1750_GetLastLux(void);
 uint8_t Bh1750_GetNightMode(void);
 
-void Bh1750_I2cTxCpltCallback(I2C_HandleTypeDef *hi2c);
-void Bh1750_I2cRxCpltCallback(I2C_HandleTypeDef *hi2c);
-void Bh1750_I2cErrorCallback(I2C_HandleTypeDef *hi2c);
-
 void Ircut1_Init(void);
 void Ircut1_SetNight(uint8_t night_mode);
 
