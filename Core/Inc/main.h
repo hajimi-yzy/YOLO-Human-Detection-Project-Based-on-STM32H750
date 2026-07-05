@@ -57,6 +57,10 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define BH1750_PWR_Pin GPIO_PIN_1
+#define BH1750_PWR_GPIO_Port GPIOC
+#define IRCUT1_NET1_Pin GPIO_PIN_12
+#define IRCUT1_NET1_GPIO_Port GPIOD
 
 /* USER CODE BEGIN Private defines */
 

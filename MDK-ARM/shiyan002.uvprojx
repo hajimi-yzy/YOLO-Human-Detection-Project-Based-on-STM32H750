@@ -430,6 +430,11 @@
               <FilePath>../Core/Src/gpio.c</FilePath>
             </File>
             <File>
+              <FileName>i2c.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../Core/Src/i2c.c</FilePath>
+            </File>
+            <File>
               <FileName>dcmi.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/Src/dcmi.c</FilePath>
@@ -653,6 +658,11 @@
               <FileName>app_camera_ai.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/User/Src/app_camera_ai.c</FilePath>
+            </File>
+            <File>
+              <FileName>bh1750_daynight.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../Core/User/Src/bh1750_daynight.c</FilePath>
             </File>
             <File>
               <FileName>nanov4_postprocess.c</FileName>

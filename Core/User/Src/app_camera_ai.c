@@ -1,6 +1,7 @@
 #include "app_camera_ai.h"
 
 #include "app_x-cube-ai.h"
+#include "bh1750_daynight.h"
 #include "dcmi_ov5640.h"
 #include "led.h"
 
@@ -136,6 +137,9 @@ void App_CameraAi_Init(void)
   Debug_SetStage(0x0150U);
   LED_Init();
   Debug_SetStage(0x0152U);
+  Ircut1_Init();
+  Bh1750_DayNightInit();
+  Debug_SetStage(0x0153U);
   SPI_LCD_Init();
   Debug_SetStage(0x0151U);
 }
@@ -145,8 +149,7 @@ void App_CameraAi_Start(void)
   Debug_SetStage(0x0160U);
   DCMI_OV5640_Init();
   Debug_SetStage(0x0161U);
-  OV5640_AF_Download_Firmware();
-  OV5640_AF_Trigger_Constant();
+  OV5640_Set_Vertical_Flip(OV5640_Disable);
   Debug_SetStage(0x0170U);
   OV5640_DMA_Transmit_Continuous((uint32_t)s_app_camera_buffer, Display_BufferSize);
   Debug_SetStage(0x0200U);
@@ -154,7 +157,14 @@ void App_CameraAi_Start(void)
 
 void App_CameraAi_Poll(void)
 {
+  int8_t ircut_mode;
+
   g_dbg_loop_count++;
+
+  ircut_mode = Bh1750_DayNightTask();
+  if (ircut_mode >= 0) {
+    Ircut1_SetNight((uint8_t)ircut_mode);
+  }
 
   if (OV5640_FrameState == 1U) {
     App_RunFrame();
