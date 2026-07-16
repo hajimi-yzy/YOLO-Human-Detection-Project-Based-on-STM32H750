@@ -15,5 +15,23 @@ MDK-ARM/check_boot.jlink
 *.lnp
 *.map
 *.lst
+*.pyc
 __pycache__/
 .pytest_cache/
+
+# Keil / IDE generated state
+**/*.uvguix.*
+**/Objects/
+**/Listings/
+**/app_test/
+**/Debug/
+**/Release/
+
+# Communication runtime output
+communication/前端/node_modules/
+communication/前端/dist/
+communication/服务器端/server.log
+communication/服务器端/.env
+
+# Local backup files
+*.bak_*

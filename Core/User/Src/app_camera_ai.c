@@ -54,6 +54,12 @@ static void App_DebugFlush(void)
   App_DCacheCleanRange((const void *)start, end - start);
 }
 
+static void App_SetPersonDetectPin(uint8_t detected)
+{
+  HAL_GPIO_WritePin(AI_PERSON_GPIO_Port, AI_PERSON_Pin,
+                    (detected != 0U) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+}
+
 static void App_UpdateFrameStats(void)
 {
   uint32_t sum = 0U;
@@ -112,12 +118,15 @@ static void App_RunFrame(void)
     g_dbg_ai_tick1 = HAL_GetTick();
     g_dbg_ai_dt = g_dbg_ai_tick1 - g_dbg_ai_tick0;
     g_dbg_ai_result = ai_result;
+    App_SetPersonDetectPin((ai_result > 0) ? 1U : 0U);
     if (ai_result > 0) {
       g_dbg_ai_count++;
       Debug_SetStage(0x0231U);
     } else {
       Debug_SetStage(0x02E0U);
     }
+  } else if ((g_ai_enable == 0U) || (g_ai_period == 0U)) {
+    App_SetPersonDetectPin(0U);
   }
 
   Debug_SetStage(0x0240U);
@@ -138,6 +147,7 @@ void App_CameraAi_Init(void)
   LED_Init();
   Debug_SetStage(0x0152U);
   Ircut1_Init();
+  Pa3NightOutput_Init();
   Bh1750_DayNightInit();
   Debug_SetStage(0x0153U);
   SPI_LCD_Init();
@@ -163,7 +173,9 @@ void App_CameraAi_Poll(void)
 
   ircut_mode = Bh1750_DayNightTask();
   if (ircut_mode >= 0) {
-    Ircut1_SetNight((uint8_t)ircut_mode);
+    uint8_t night_mode = (uint8_t)ircut_mode;
+    Ircut1_SetNight(night_mode);
+    Pa3NightOutput_SetNight(night_mode);
   }
 
   if (OV5640_FrameState == 1U) {

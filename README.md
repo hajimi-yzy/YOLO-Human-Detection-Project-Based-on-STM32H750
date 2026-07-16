@@ -1,111 +1,182 @@
-# Human Detection Project Based on STM32H750
+# 基于 STM32H750 的 AI 视觉六足救援机器人
 
-基于 STM32H750 的嵌入式人物检测实验项目。工程使用 OV5640 摄像头采集画面，通过 DCMI + DMA 写入帧缓冲，在 LCD 上显示实时画面，并使用 X-CUBE-AI 部署由 YOLOv8n 深度剪枝、INT8 量化得到的 NanoV4 96×96 模型完成人物检测与框选显示。当前板端实测约 8 FPS，仍未进行深度优化。
+面向建筑坍塌、地下管廊、矿井、野外搜救和危险巡检场景的六足机器人原型。系统采用“主控 + AI 视觉 + 4G 通信”分层架构，以 STM32H750、RTOS、OV5640、BMI088、BW21 和 L610 为核心，形成感知、决策、执行与远程通信闭环。
 
-## 功能特性
+![六足救援机器人样机](docs/images/robot-prototype.jpg)
 
-- STM32H750 主控，启用 I-Cache / D-Cache 与 MPU 基础配置。
-- OV5640 摄像头输入，DCMI + DMA 连续采集 RGB565 图像。
-- SPI6 驱动 LCD 显示摄像头画面、FPS、AI 状态和检测框。
-- X-CUBE-AI 10.2 部署由 YOLOv8n 深度剪枝、INT8 量化得到的 NanoV4 96×96 人物检测模型。
-- 当前板端实测约 8 FPS，仍未进行深度优化，后续仍有性能提升空间。
-- Anchor-free / FCOS 风格后处理：质量分数、LTRB 距离、局部极大值、NMS。
-- 运行期调试变量记录帧计数、LCD 刷新计数、AI 次数、推理耗时和 fault 寄存器。
-- `Core/User` 承载摄像头、LCD、AI 调度和后处理逻辑，尽量降低 CubeMX 重新生成时的冲突。
+> 完整设计、硬件、软件和样机成果见 [《基于 STM32H750 的 AI 视觉六足救援机器人技术文档》](docs/基于STM32H750的AI视觉六足救援机器人技术文档.pdf)。
 
-## 硬件环境
+## 项目亮点
 
-| 模块 | 说明 |
-| --- | --- |
-| MCU | STM32H750XBH 系列工程配置 |
-| 摄像头 | OV5640，DCMI 接口 |
-| 显示屏 | SPI LCD，工程中使用 SPI6 输出 |
-| 调试下载 | Keil MDK + J-Link / ST-Link，按实际板卡连接 |
+- **端侧 AI 人员检测**：OV5640 采集图像，STM32H750 通过 X-CUBE-AI 运行 NanoV4 96×96 INT8 模型，板端实测约 8 FPS。
+- **六足运动控制**：18 舵机、逆运动学和多步态规划，配合 BMI088 与姿态滤波提高复杂地形稳定性。
+- **环境与定位感知**：集成温湿度、气压、气体、人体感应和北斗/GPS 数据采集。
+- **昼夜视觉切换**：BH1750 软件 I²C 光照检测、IR-cut 控制、夜间状态输出和 AI 人员检测 GPIO 输出。
+- **4G 视频与遥控**：BW21 负责 H.264 视频编码与 USB CDC ECM 通信，L610 完成 4G 链路，云端提供视频、传感器、定位和控制服务。
+- **远程控制平台**：aiohttp 后端 + Vue 3 前端，支持 WebSocket、MJPEG、地图、传感数据和键盘/面板控制。
+- **失联保护**：通信固件在 500 ms 内未收到移动指令时自动发送停止指令。
 
-> 具体引脚、时钟、DMA 和中断配置以 `shiyan002.ioc` 为准。
+## 系统架构
 
-## 软件环境
-
-- STM32CubeMX / STM32CubeIDE 可用于查看和重新生成工程配置。
-- STM32CubeH7 HAL。
-- X-CUBE-AI 10.2 / ST Edge AI Core 2.2。
-- Keil MDK-ARM，工程文件位于 `MDK-ARM/shiyan002.uvprojx`。
-- ARMCC 5.06u7 或与工程配置兼容的 ARM 编译工具链。
-
-## AI 模型信息
-
-生成报告位于 `X-CUBE-AI/App/network_generate_report.txt`，当前模型摘要如下：
-
-| 项目 | 参数 |
-| --- | --- |
-| 模型来源 | YOLOv8n 深度剪枝 + INT8 量化 |
-| 部署模型 | `models/nanov4_96_full_int8.tflite` |
-| ONNX 导出 | `models/nanov4_96.onnx` |
-| 当前性能 | 板端实测约 8 FPS，未深度优化 |
-| 输入 | `int8(1x96x96x3)`，量化 `QLinear(0.003921569, -128)` |
-| 输出 | `int8(1x24x24x5)`，量化 `QLinear(0.071815751, -59)` |
-| 类别 | person |
-| 权重 | 约 48.38 KiB |
-| 激活 RAM | 约 87.43 KiB |
-| MACC | 约 14.54 M |
-
-后处理实现位于 `Core/User/Src/nanov4_postprocess.c`，检测结果最多保留 `NANOV4_MAX_DETECTIONS` 个目标。
-
-## 工程结构
-
-```text
-Core/
-  Inc, Src/                 CubeMX 生成的 HAL 初始化与中断代码
-  User/Inc, User/Src/       摄像头、LCD、LED、AI 调度、NanoV4 后处理
-Drivers/                    STM32 HAL / CMSIS 驱动
-Middlewares/ST/AI/          X-CUBE-AI 运行库头文件
-X-CUBE-AI/App/              X-CUBE-AI 生成的网络代码和应用层接口
-models/                     ONNX 原始导出模型与 TFLite INT8 部署模型
-MDK-ARM/                    Keil MDK 工程文件
-shiyan002.ioc               CubeMX 工程配置
+```mermaid
+flowchart LR
+    Camera["OV5640 摄像头"] --> Vision["STM32H750 AI 视觉模块"]
+    Vision -->|人员检测状态| Main["STM32H750 主控 + RTOS"]
+    Sensors["BMI088 / 环境 / 气体 / 北斗"] --> Main
+    Radar["360° 激光雷达"] -.接口与代码框架.-> Main
+    Main --> Servo["18 舵机六足执行机构"]
+    Main <--> BW21["BW21 视频与通信"]
+    BW21 <--> L610["L610 Cat.1 4G"]
+    L610 <--> Server["aiohttp 云端服务"]
+    Server <--> Web["Vue 3 远程控制平台"]
 ```
 
-## 运行流程
+## 当前完成状态
 
-1. `main.c` 初始化 MPU、Cache、HAL、DCMI、DMA、SPI6、USART1 和 X-CUBE-AI。
-2. `App_CameraAi_Init()` 初始化 LED 与 LCD。
-3. `App_CameraAi_Start()` 初始化 OV5640，并启动 DCMI DMA 连续采集。
-4. 每帧完成后暂停采集，维护 D-Cache，同步帧缓冲并刷新 LCD。
-5. AI 模块将当前 RGB565 画面中心裁剪缩放到 96×96，转换为 RGB888 INT8 输入。
-6. X-CUBE-AI 执行一次推理，NanoV4 后处理生成检测框。
-7. LCD 显示 `AI_OK`、检测数量、人物框和置信度，然后恢复摄像头采集。
+| 模块 | 状态 | 说明 |
+| --- | --- | --- |
+| 六足机械与运动控制 | 已完成样机联调 | 支持基础行走、姿态感知和多步态控制 |
+| AI 人员检测 | 已完成板端部署 | NanoV4 INT8，约 8 FPS，LCD 显示检测框与状态 |
+| 昼夜视觉 | 已完成代码集成 | BH1750、IR-cut、夜间状态输出 |
+| 环境与定位 | 已完成代码集成 | 温湿度、气压、气体、人体感应、北斗/GPS |
+| 视频与远程控制 | 已完成链路与平台 | BW21 + L610、视频/状态回传、控制指令下发 |
+| 激光雷达避障 | 待实机联调 | 已保留接口、任务和避障代码框架，不作为已验证功能 |
 
-## 编译和下载
+## 主要性能
 
-1. 使用 Keil MDK 打开 `MDK-ARM/shiyan002.uvprojx`。
-2. 选择目标 `shiyan002`。
-3. 执行 Rebuild，确认无错误后生成固件。
-4. 连接调试器和开发板。
-5. 使用 Keil Download 或 J-Link/ST-Link 工具下载到板卡。
-6. 复位运行，LCD 应显示摄像头画面、FPS、`AI_OK` 和人物检测结果。
-
-如需修改外设配置，建议先编辑 `shiyan002.ioc`，再通过 CubeMX 重新生成，并确认 `Core/User` 中的用户代码仍被工程包含。
-
-## 调试变量
-
-工程保留了一组便于在线观察的全局变量，定义在 `Core/User/Src/app_camera_ai.c`：
-
-| 变量 | 含义 |
+| 指标 | 参数 |
 | --- | --- |
-| `g_dbg_stage` | 当前运行阶段标记 |
-| `g_dbg_loop_count` | 主循环轮询计数 |
-| `g_dbg_frame_count` | 摄像头帧计数 |
-| `g_dbg_lcd_count` | LCD 刷新计数 |
-| `g_dbg_ai_count` | AI 成功处理计数 |
-| `g_dbg_ai_dt` | 单次 AI 处理耗时，单位为 HAL tick |
-| `g_dbg_ai_result` | 最近一次 AI 处理结果 |
-| `g_dbg_fault_*` | HardFault / MemManage / BusFault 等 fault 寄存器快照 |
-| `g_ai_enable` | 是否启用 AI 处理 |
-| `g_ai_period` | AI 处理周期，按帧计数 |
+| 最大行进速度 | 约 1.1 m/s（三角步态） |
+| 最大爬坡角度 | 约 30° |
+| 姿态感知 | BMI088 + 卡尔曼/四元数 EKF |
+| AI 推理速度 | 板端实测约 8 FPS |
+| AI 输入 | `int8(1×96×96×3)` |
+| AI 输出 | `int8(1×24×24×5)`，person 单类别 |
+| 模型权重 | 约 48.38 KiB |
+| 激活 RAM | 约 87.43 KiB |
+| 计算量 | 约 14.54 MMACC |
+| 通信方式 | BW21 + L610 Cat.1 4G |
 
-## 注意事项
+## 仓库结构
 
-- 本项目包含 STM32 HAL、X-CUBE-AI 生成代码和 ST 中间件文件，请遵守对应软件包许可。
-- 模型文件已随仓库放在 `models/` 中；重新生成 X-CUBE-AI 代码时，可使用 `models/nanov4_96_full_int8.tflite` 或按需从 `models/nanov4_96.onnx` 重新转换。
-- D-Cache 对 DCMI DMA 帧缓冲有影响，修改帧缓冲或 DMA 流程时需要同步检查 cache clean / invalidate 操作。
-- 当前实测性能约 8 FPS，尚未针对模型结构、内存访问、LCD 刷新、摄像头流水线等方向做深度优化。
+```text
+.
+├─ Core/、Drivers/、Middlewares/       STM32H750 AI 视觉固件
+├─ X-CUBE-AI/、models/                 生成网络代码与 NanoV4 模型
+├─ MDK-ARM/shiyan002.uvprojx           AI 视觉 Keil 工程
+├─ shiyan002.ioc                       AI 视觉 CubeMX 配置
+├─ H7_onboard/                         六足机器人主控固件
+│  ├─ MDK-ARM/Hexapod.uvprojx          主控 Keil 工程
+│  ├─ MDK-ARM/USER/                    步态、舵机、姿态、传感器与任务代码
+│  └─ hexapod.ioc                      主控 CubeMX 配置
+├─ communication/
+│  ├─ 固件/bw21_l610_ecm.c             BW21 + L610 通信固件
+│  ├─ 服务器端/                         aiohttp、UDP/TCP、WebSocket、MJPEG
+│  └─ 前端/                             Vue 3 远程控制平台
+├─ tests/、tools/                      AI 后处理测试与辅助工具
+└─ docs/                               技术文档与样机图片
+```
+
+主控工程仅保留编译所需的 CMSIS/HAL、FreeRTOS、DSP 库和项目源码，未纳入 Keil 中间文件、对象文件及个人 IDE 状态。
+
+## AI 视觉固件
+
+### 模型与处理流程
+
+1. OV5640 通过 DCMI + DMA 连续采集 RGB565 图像。
+2. LCD 通过 SPI6 显示实时画面、FPS、AI 状态和检测框。
+3. 当前画面经中心裁剪与缩放后转换为 96×96 RGB888 INT8 输入。
+4. X-CUBE-AI 执行 NanoV4 推理。
+5. Anchor-free / FCOS 风格后处理执行质量分数计算、LTRB 解码、局部极大值筛选和 NMS。
+6. 检测结果通过 LCD 与 `AI_PERSON` GPIO 输出；BH1750 根据环境光切换 IR-cut 和夜间状态输出。
+
+模型和生成报告位于：
+
+- `models/nanov4_96_full_int8.tflite`
+- `models/nanov4_96.onnx`
+- `X-CUBE-AI/App/network_generate_report.txt`
+- `Core/User/Src/nanov4_postprocess.c`
+
+### 编译
+
+1. 使用 Keil MDK-ARM 打开 `MDK-ARM/shiyan002.uvprojx`。
+2. 选择目标 `shiyan002`。
+3. Rebuild 后通过 J-Link 或 ST-Link 下载。
+4. 复位运行，LCD 应显示摄像头画面、FPS、`AI_OK` 和检测结果。
+
+具体引脚、时钟、DMA 和中断配置以 `shiyan002.ioc` 为准。修改 CubeMX 配置并重新生成后，需要确认 `Core/User` 仍包含在 Keil 工程中。
+
+## 六足主控固件
+
+主控工程基于 STM32H750VBTx 与 FreeRTOS，核心代码位于 `H7_onboard/MDK-ARM/USER/`：
+
+- `TASK/`：步态控制、姿态、传感器、云端、PS2、LED 和雷达任务。
+- `APP/`：腿部逆解、舵机、步态、SC16IS752、AHT20、BMP280、气体、GPS、PIR 和 D6 雷达驱动。
+- `IMU/`：BMI088、卡尔曼滤波、四元数 EKF、PID 和 EEPROM 校准数据。
+
+编译步骤：
+
+1. 使用 Keil MDK-ARM 打开 `H7_onboard/MDK-ARM/Hexapod.uvprojx`。
+2. 选择目标 `hexapod`。
+3. 按实际硬件校对 `H7_onboard/hexapod.ioc`、串口、舵机方向和传感器接线。
+4. Rebuild 并下载到主控板。
+
+## 通信与远程平台
+
+### 服务端
+
+服务端默认监听以下端口：
+
+| 端口 | 用途 |
+| --- | --- |
+| `8765` | HTTP、WebSocket、MJPEG |
+| `9091/UDP` | H.264 视频流 |
+| `9092/TCP` | 4G/L610 H.264 兼容接收 |
+| `9093/UDP` | 传感器、GPS 与控制指令 |
+
+启动前必须配置管理员口令：
+
+```bash
+cd communication/服务器端
+python -m pip install -r requirements.txt
+export ROBOT_ADMIN_USER=admin
+export ROBOT_ADMIN_PASSWORD='replace-with-a-strong-password'
+python server.py
+```
+
+Windows PowerShell 使用 `$env:ROBOT_ADMIN_USER` 和 `$env:ROBOT_ADMIN_PASSWORD` 设置同名环境变量。安装 `ffmpeg` 后可启用 H.264 到 MJPEG 的降级转码端点。
+
+### 前端
+
+```bash
+cd communication/前端
+npm install
+npm run dev
+# 生产构建
+npm run build
+```
+
+部署前修改 `communication/前端/src/config/config.js` 中的服务端地址。登录口令只发送到服务端验证，不在前端源码中保存。
+
+### BW21 + L610 固件
+
+固件入口为 `communication/固件/bw21_l610_ecm.c`，使用 BW21 USB Host 连接 L610 ECM 网络接口，并完成：
+
+- GC2053 H.264 硬件编码与视频发送；
+- STM32 UART 传感器/GPS 数据解析与 JSON 封装；
+- 云端控制指令转发为 `F/B/L/R/S` 单字符命令；
+- 500 ms 控制超时自动停止。
+
+烧录前需要按部署环境修改服务器 IP、L610 ECM 地址和网络参数。
+
+## 部署与安全提示
+
+- 当前通信配置中包含项目联调服务器地址，公开部署前应替换为自己的域名或地址。
+- 公网部署必须配置强口令，并建议增加 HTTPS/WSS、反向代理、访问控制和令牌校验。
+- D-Cache 会影响 DCMI DMA 帧缓冲一致性，修改采集链路时需同步检查 cache clean/invalidate。
+- 舵机动力、主控逻辑和通信视觉模块应分区供电并共地，避免舵机大电流干扰。
+- 激光雷达目前仅完成接口与代码框架，接入实物后仍需完成数据校验和闭环避障测试。
+
+## 许可说明
+
+仓库包含 STM32 HAL/CMSIS、FreeRTOS、X-CUBE-AI 生成代码及相关运行库。第三方组件分别受其原始许可约束；使用 X-CUBE-AI 内容前请阅读 `LICENSE_X-CUBE-AI.txt`。

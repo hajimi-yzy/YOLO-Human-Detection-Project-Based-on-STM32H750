@@ -171,6 +171,17 @@ void Ircut1_Init(void)
   Ircut1_SetNight(0U);
 }
 
+void Pa3NightOutput_SetNight(uint8_t night_mode)
+{
+  HAL_GPIO_WritePin(PA3_NIGHT_PORT, PA3_NIGHT_CTRL_PIN,
+                    (night_mode != 0U) ? GPIO_PIN_RESET : GPIO_PIN_SET);
+}
+
+void Pa3NightOutput_Init(void)
+{
+  Pa3NightOutput_SetNight(0U);
+}
+
 void Bh1750_DayNightInit(void)
 {
   HAL_GPIO_WritePin(BH1750_PWR_PORT, BH1750_PWR_PIN, GPIO_PIN_SET);
