@@ -1,6 +1,6 @@
 ST Edge AI Core v2.2.0-20266 2adc00962
 Created date          : 2026-06-20 15:27:19
-Parameters            : generate --target stm32h7 --name network -m D:/yolo_training/exports/nanov4/int8_96/nanov4_96_full_int8.tflite --compression high --verbosity 1 -O time --workspace C:/Users/62629/AppData/Local/Temp/mxAI_workspace21720862161570010106339400298634811 --output C:/Users/62629/.stm32cubemx/network_output
+Parameters            : generate --target stm32h7 --name network -m C:/path/to/models/nanov4_96_full_int8.tflite --compression high --verbosity 1 -O time --workspace C:/Users/PUBLIC_USER/AppData/Local/Temp/mxAI_workspace_PUBLIC --output C:/Users/PUBLIC_USER/.stm32cubemx/network_output
 
 Exec/report summary (generate)
 -------------------------------------------------------------------------------------------------------------------------------
@@ -11,8 +11,8 @@ compression        :   high
 options            :   allocate-inputs, allocate-outputs                                                                       
 optimization       :   time                                                                                                    
 target/series      :   stm32h7                                                                                                 
-workspace dir      :   C:\Users\62629\AppData\Local\Temp\mxAI_workspace21720862161570010106339400298634811                     
-output dir         :   C:\Users\62629\.stm32cubemx\network_output                                                              
+workspace dir      :   C:\Users\PUBLIC_USER\AppData\Local\Temp\mxAI_workspace_PUBLIC
+output dir         :   C:\Users\PUBLIC_USER\.stm32cubemx\network_output
 model_fmt          :   ss/sa per channel                                                                                       
 model_name         :   nanov4_96_full_int8                                                                                     
 model_hash         :   0xf8d8d1b191273f7f4fee78a9bf540e9a                                                                      
@@ -798,10 +798,10 @@ macc=14,540,805 weights=49,540 act=89,524 ram_io=0
 
 Generated files (7)
 ------------------------------------------------------------------ 
-C:\Users\62629\.stm32cubemx\network_output\network_data_params.h   
-C:\Users\62629\.stm32cubemx\network_output\network_data_params.c   
-C:\Users\62629\.stm32cubemx\network_output\network_data.h          
-C:\Users\62629\.stm32cubemx\network_output\network_data.c          
-C:\Users\62629\.stm32cubemx\network_output\network_config.h        
-C:\Users\62629\.stm32cubemx\network_output\network.h               
-C:\Users\62629\.stm32cubemx\network_output\network.c               
+C:\Users\PUBLIC_USER\.stm32cubemx\network_output\network_data_params.h
+C:\Users\PUBLIC_USER\.stm32cubemx\network_output\network_data_params.c
+C:\Users\PUBLIC_USER\.stm32cubemx\network_output\network_data.h
+C:\Users\PUBLIC_USER\.stm32cubemx\network_output\network_data.c
+C:\Users\PUBLIC_USER\.stm32cubemx\network_output\network_config.h
+C:\Users\PUBLIC_USER\.stm32cubemx\network_output\network.h
+C:\Users\PUBLIC_USER\.stm32cubemx\network_output\network.c

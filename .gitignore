@@ -1,3 +1,4 @@
+# Keil / STM32 generated output
 MDK-ARM/shiyan002/
 MDK-ARM/*.log
 MDK-ARM/JLink*
@@ -27,11 +28,28 @@ __pycache__/
 **/Debug/
 **/Release/
 
-# Communication runtime output
+# Frontend dependencies, builds and local configuration
 communication/前端/node_modules/
 communication/前端/dist/
-communication/服务器端/server.log
+communication/前端/.env.local
+communication/前端/.env.*.local
+
+# Server runtime output and secrets
+communication/服务器端/__pycache__/
+communication/服务器端/.pytest_cache/
+communication/服务器端/*.pyc
+communication/服务器端/*.log
 communication/服务器端/.env
+communication/服务器端/.env.*
+
+# ESP-IDF generated output and deployment-specific configuration
+communication/固件/esp32s3_l610_ps2_v5/build/
+communication/固件/esp32s3_l610_ps2_v5/managed_components/
+communication/固件/esp32s3_l610_ps2_v5/sdkconfig
+communication/固件/esp32s3_l610_ps2_v5/sdkconfig.old
+communication/固件/esp32s3_l610_ps2_v5/dependencies.lock
+communication/固件/esp32s3_l610_ps2_v5/firmware_binaries/
+communication/固件/esp32s3_l610_ps2_v5/*.log
 
 # Local backup files
 *.bak_*

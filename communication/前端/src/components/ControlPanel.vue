@@ -1,5 +1,5 @@
 <template>
-  <div class="control-bar">
+  <div class="control-bar" :style="barStyle">
     <!-- PS2 十字键 -->
     <div class="dpad-grid">
       <button
@@ -10,6 +10,7 @@
         @pointerdown.prevent="onBtnPress(btn)"
         @pointerup.prevent="onBtnRelease(btn.key)"
         @pointerleave.prevent="onBtnRelease(btn.key)"
+        @pointercancel.prevent="onBtnRelease(btn.key)"
       >
         {{ btn.label }}
       </button>
@@ -25,15 +26,16 @@
           :class="[btn.color || '', { active: activeKeys.has(btn.key) }]"
           @pointerdown.prevent="onBtnPress(btn)"
           @pointerup.prevent="onBtnRelease(btn.key)"
+          @pointerleave.prevent="onBtnRelease(btn.key)"
+          @pointercancel.prevent="onBtnRelease(btn.key)"
         >
           {{ btn.label }}
         </button>
       </div>
       <div class="flex items-center gap-1 text-[9px]" style="color: var(--text-tertiary)">
-        <span class="w-1.5 h-1.5 rounded-full" :class="wsConnected ? 'bg-green-400' : 'bg-red-400'"></span>
-        {{ wsConnected ? '已连接' : '未连接' }}
+        <span class="w-1.5 h-1.5 rounded-full" :class="deviceOnline ? 'bg-green-400' : 'bg-red-400'"></span>
+        {{ deviceOnline ? '设备在线' : (wsConnected ? '设备离线' : '服务器未连接') }}
       </div>
-      <div class="text-[9px]" style="color: var(--text-tertiary)">速度: {{ speed }}%</div>
     </div>
 
     <!-- 功能键 + 肩键 -->
@@ -46,6 +48,8 @@
           :class="{ active: activeKeys.has(btn.key) }"
           @pointerdown.prevent="onBtnPress(btn)"
           @pointerup.prevent="onBtnRelease(btn.key)"
+          @pointerleave.prevent="onBtnRelease(btn.key)"
+          @pointercancel.prevent="onBtnRelease(btn.key)"
         >
           {{ btn.label }}
         </button>
@@ -58,121 +62,136 @@
           :class="[btn.color, { active: activeKeys.has(btn.key) }]"
           @pointerdown.prevent="onBtnPress(btn)"
           @pointerup.prevent="onBtnRelease(btn.key)"
+          @pointerleave.prevent="onBtnRelease(btn.key)"
+          @pointercancel.prevent="onBtnRelease(btn.key)"
         >
           {{ btn.label }}
         </button>
       </div>
     </div>
-
-    <!-- 分隔 + 键盘提示 -->
-    <div class="h-7 w-px mx-1" style="background: var(--border-color)"></div>
-    <div class="flex flex-col gap-0.5 text-[9px] leading-tight" style="color: var(--text-tertiary)">
-      <span>WASD/方向键 移动</span>
-      <span>Q/E 旋转 | R/F 调速</span>
-      <span>Space 停止</span>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import cfg from '@/config/config'
-import { useWebSocket } from '@/composables/useWebSocket'
+import { useControlChannel } from '@/composables/useControlChannel'
+import { useSensorStore } from '@/composables/useSensorStore'
 
-const { send, connected: wsConnected } = useWebSocket('control', cfg.WS_MAIN)
+const props = defineProps({
+  leftInset: { type: Number, default: 0 },
+  rightInset: { type: Number, default: 0 },
+})
+
+const barStyle = computed(() => ({
+  paddingLeft: `${props.leftInset + 14}px`,
+  paddingRight: `${props.rightInset + 14}px`,
+}))
+
+const { sendCommand, connected: wsConnected } = useControlChannel()
+const { online: deviceOnline } = useSensorStore()
 
 const buttons = cfg.PS2_BUTTONS
 const activeKeys = reactive(new Set())
-const speed = ref(100)
+const repeatTimers = new Map()
+const flatButtons = Object.values(buttons).flat()
+const buttonByName = new Map(
+  flatButtons.filter(btn => btn.button).map(btn => [btn.button, btn]),
+)
+const directionButtons = new Set(['PAD_UP', 'PAD_RIGHT', 'PAD_DOWN', 'PAD_LEFT'])
 
-// 按住时每200ms重复发送 (保持BW21心跳不超时)
-const repeatTimers = {}
-
-function sendCmd(command, extra = {}) {
-  const payload = { type: 'command_request', cmd: command, params: { speed: speed.value, ...extra } }
-  send(payload)
-}
-
-function isMoveCmd(cmd) {
-  return cmd === 'move'
+function sendButtonState(button, state) {
+  sendCommand('ps2_button', { button, state })
 }
 
 function onBtnPress(btn) {
-  if (!btn.cmd) return
-  activeKeys.add(btn.key)
+  if (!btn.button || activeKeys.has(btn.key)) return
 
-  // 立即发送一次
-  sendCmd(btn.cmd, btn.params || {})
-
-  // 按住时每200ms重复发送 (维持BW21自动停止计时器)
-  if (isMoveCmd(btn.cmd)) {
-    clearInterval(repeatTimers[btn.key])
-    repeatTimers[btn.key] = setInterval(() => {
-      sendCmd(btn.cmd, btn.params || {})
-    }, 200)
+  if (directionButtons.has(btn.button)) {
+    for (const activeKey of [...activeKeys]) {
+      if (activeKey !== btn.key && directionButtons.has(activeKey)) {
+        onBtnRelease(activeKey)
+      }
+    }
   }
+
+  activeKeys.add(btn.key)
+  sendButtonState(btn.button, 'down')
+
+  const timer = setInterval(() => {
+    sendButtonState(btn.button, 'down')
+  }, 200)
+  repeatTimers.set(btn.key, timer)
 }
 
 function onBtnRelease(key) {
+  const timer = repeatTimers.get(key)
+  if (timer) clearInterval(timer)
+  repeatTimers.delete(key)
+
+  if (!activeKeys.has(key)) return
   activeKeys.delete(key)
 
-  // 清除重复发送定时器
-  if (repeatTimers[key]) {
-    clearInterval(repeatTimers[key])
-    delete repeatTimers[key]
-  }
-
-  // 方向键松开 → 发stop
-  const flat = Object.values(buttons).flat()
-  const btn = flat.find(b => b.key === key)
-  if (btn && isMoveCmd(btn.cmd)) {
-    sendCmd('stop')
-  }
+  const btn = buttonByName.get(key)
+  if (btn) sendButtonState(btn.button, 'up')
 }
 
-// 键盘按键映射到PS2按钮 (复用重复发送逻辑)
 const keyToBtnKey = {}
+function keyboardKeyId(key) {
+  return key.length === 1 ? key.toLowerCase() : key
+}
+
 function onKeyDown(e) {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
-  if (e.repeat) return  // 忽略OS自带重复事件，用我们自己的定时器
-  const m = cfg.KEY_MAP[e.key]
-  if (!m) return
+  if (e.repeat) return
+  const keyId = keyboardKeyId(e.key)
+  const button = cfg.KEY_MAP[keyId]
+  if (!button) return
   e.preventDefault()
-  const flat = Object.values(buttons).flat()
-  const btn = flat.find(b => {
-    if (b.cmd !== m.cmd) return false
-    if (m.params?.direction) return b.params?.direction === m.params.direction
-    return !b.params?.direction
-  })
-  if (btn) {
-    keyToBtnKey[e.key] = btn.key
-    onBtnPress(btn)
-  } else {
-    // 非PS2键 (如q/e/r/f/space) 直接发一次
-    sendCmd(m.cmd, m.params || {})
-  }
+  const btn = buttonByName.get(button)
+  if (!btn) return
+  keyToBtnKey[keyId] = btn.key
+  onBtnPress(btn)
 }
+
 function onKeyUp(e) {
-  const btnKey = keyToBtnKey[e.key]
-  if (btnKey) {
-    onBtnRelease(btnKey)
-    delete keyToBtnKey[e.key]
-    return
-  }
-  // WASD/方向键直接映射 → 发stop
-  const m = cfg.KEY_MAP[e.key]
-  if (m && m.cmd === 'move') {
-    sendCmd('stop')
-  }
+  const keyId = keyboardKeyId(e.key)
+  const btnKey = keyToBtnKey[keyId]
+  if (!btnKey) return
+  e.preventDefault()
+  onBtnRelease(btnKey)
+  delete keyToBtnKey[keyId]
 }
+
+function releaseAllButtons() {
+  for (const key of [...activeKeys]) onBtnRelease(key)
+  for (const key of Object.keys(keyToBtnKey)) delete keyToBtnKey[key]
+}
+
+function onVisibilityChange() {
+  if (document.visibilityState === 'hidden') releaseAllButtons()
+}
+
+watch(wsConnected, (connected) => {
+  if (!connected) releaseAllButtons()
+})
 
 onMounted(() => {
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
+  window.addEventListener('blur', releaseAllButtons)
+  window.addEventListener('pagehide', releaseAllButtons)
+  window.addEventListener('beforeunload', releaseAllButtons)
+  document.addEventListener('visibilitychange', onVisibilityChange)
 })
 onUnmounted(() => {
+  releaseAllButtons()
   window.removeEventListener('keydown', onKeyDown)
   window.removeEventListener('keyup', onKeyUp)
+  window.removeEventListener('blur', releaseAllButtons)
+  window.removeEventListener('pagehide', releaseAllButtons)
+  window.removeEventListener('beforeunload', releaseAllButtons)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 </script>
 
@@ -180,7 +199,7 @@ onUnmounted(() => {
 .control-bar {
   position: fixed;
   bottom: 0; left: 0; right: 0;
-  z-index: 5000;
+  z-index: 500;
   height: 90px;
   display: flex;
   align-items: center;
@@ -222,5 +241,11 @@ onUnmounted(() => {
   width: 26px; height: 26px;
   border-radius: 50% !important;
   font-size: 11px;
+}
+@media (max-width: 600px) {
+  .control-bar {
+    gap: 3px;
+    padding: 4px 6px !important;
+  }
 }
 </style>

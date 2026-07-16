@@ -1,6 +1,7 @@
 <template>
   <div class="dashboard w-full h-full relative" :style="{ background: 'url(/2907bd408ff232736c4b2ab15c2a9ff2.jpg) center / cover no-repeat' }">
     <LeftPanel
+      :width="leftPanelW"
       :window-items="windowItems"
       :is-dark="isDark"
       :layout-mode="layoutMode"
@@ -9,7 +10,7 @@
       @toggle-layout="toggleLayoutMode"
     />
 
-    <div class="work-area" :style="workAreaStyle">
+    <div class="work-area" :class="{ 'split-layout': layoutMode === 'split' }" :style="workAreaStyle">
       <SensorWindow
         v-if="windows.sensor.created"
         ref="sensorRef"
@@ -55,7 +56,7 @@
 
       <!-- 分屏模式：垂直分割条（video ↔ map） -->
       <div
-        v-if="layoutMode === 'split' && windows.video.visible && windows.map.visible"
+        v-if="layoutMode === 'split' && !stackedSplit && windows.video.visible && windows.map.visible"
         class="splitter splitter-v"
         :class="{ active: splitterVDragging }"
         :style="splitterVStyle"
@@ -64,7 +65,7 @@
 
       <!-- 分屏模式：水平分割条（上方区域 ↔ sensor） -->
       <div
-        v-if="layoutMode === 'split' && (windows.video.visible || windows.map.visible) && windows.sensor.visible"
+        v-if="layoutMode === 'split' && !stackedSplit && (windows.video.visible || windows.map.visible) && windows.sensor.visible"
         class="splitter splitter-h"
         :class="{ active: splitterHDragging }"
         :style="splitterHStyle"
@@ -72,7 +73,8 @@
       ></div>
     </div>
 
-    <ControlPanel />
+    <RightEventPanel :width="rightPanelW" />
+    <ControlPanel :left-inset="controlLeftInset" :right-inset="controlRightInset" />
   </div>
 </template>
 
@@ -82,6 +84,7 @@ import LeftPanel from '@/components/LeftPanel.vue'
 import SensorWindow from '@/components/SensorWindow.vue'
 import VideoWindow from '@/components/VideoWindow.vue'
 import MapWindow from '@/components/MapWindow.vue'
+import RightEventPanel from '@/components/RightEventPanel.vue'
 import ControlPanel from '@/components/ControlPanel.vue'
 
 // ==================== 窗口可见性 ====================
@@ -115,7 +118,8 @@ if (saved === 'dark') isDark.value = true
 else if (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches) isDark.value = true
 
 // ==================== 布局常量 ====================
-const LEFT_PANEL_W = 190
+const DESKTOP_LEFT_PANEL_W = 190
+const DESKTOP_RIGHT_PANEL_W = 280
 const CTRL_PANEL_H = 90
 const GAP = 8
 const MIN_W = 360
@@ -127,17 +131,28 @@ function onResize() { screenW.value = window.innerWidth; screenH.value = window.
 onMounted(() => window.addEventListener('resize', onResize))
 onUnmounted(() => window.removeEventListener('resize', onResize))
 
+const compactLayout = computed(() => screenW.value < 900)
+const leftPanelW = computed(() => compactLayout.value
+  ? Math.round(Math.min(DESKTOP_LEFT_PANEL_W, screenW.value * 0.30))
+  : DESKTOP_LEFT_PANEL_W)
+const rightPanelW = computed(() => compactLayout.value
+  ? Math.round(Math.min(DESKTOP_RIGHT_PANEL_W, screenW.value * 0.36))
+  : DESKTOP_RIGHT_PANEL_W)
+const controlLeftInset = computed(() => compactLayout.value ? 0 : leftPanelW.value)
+const controlRightInset = computed(() => compactLayout.value ? 0 : rightPanelW.value)
+
 const workAreaStyle = computed(() => ({
   position: 'absolute',
-  left: `${LEFT_PANEL_W}px`,
+  left: `${leftPanelW.value}px`,
   top: 0,
-  width: `${screenW.value - LEFT_PANEL_W}px`,
-  height: `${screenH.value - CTRL_PANEL_H}px`,
+  width: `${Math.max(0, screenW.value - leftPanelW.value - rightPanelW.value)}px`,
+  height: `${Math.max(0, screenH.value - CTRL_PANEL_H)}px`,
   pointerEvents: 'none',
 }))
 
-const availW = computed(() => screenW.value - LEFT_PANEL_W)
-const availH = computed(() => screenH.value - CTRL_PANEL_H)
+const availW = computed(() => Math.max(0, screenW.value - leftPanelW.value - rightPanelW.value))
+const availH = computed(() => Math.max(0, screenH.value - CTRL_PANEL_H))
+const stackedSplit = computed(() => availW.value < MIN_W * 2 + GAP)
 
 // ==================== 布局模式 ====================
 const layoutMode = ref('split')
@@ -148,7 +163,7 @@ function toggleLayoutMode() {
 
 // ==================== 默认初始位置 ====================
 const defaultPos = computed(() => {
-  const waW = screenW.value - LEFT_PANEL_W
+  const waW = availW.value
   const waH = screenH.value - CTRL_PANEL_H
   const vw = Math.max(360, Math.round(waW * 0.4))
   const vh = Math.max(280, Math.round(waH * 0.5))
@@ -173,6 +188,21 @@ function computeSplitLayout() {
   const hasTop = vv || mv
   const result = {}
   if (!hasTop && !sv) return result
+
+  if (stackedSplit.value) {
+    const visibleKeys = ['video', 'map', 'sensor'].filter((key) => windows[key].visible)
+    const itemHeight = Math.max(0, Math.floor((ah - GAP * (visibleKeys.length - 1)) / visibleKeys.length))
+    visibleKeys.forEach((key, index) => {
+      const y = index * (itemHeight + GAP)
+      result[key] = {
+        x: 0,
+        y,
+        w: aw,
+        h: index === visibleKeys.length - 1 ? Math.max(0, ah - y) : itemHeight,
+      }
+    })
+    return result
+  }
 
   if (hasTop && sv) {
     const topH = Math.round(ah * 0.55)
@@ -376,9 +406,19 @@ watch(
     }
   }
 )
+
+watch([availW, availH], async () => {
+  if (layoutMode.value !== 'split') return
+  await nextTick()
+  applySplitLayout()
+})
 </script>
 
 <style scoped>
+.work-area.split-layout :deep(.glass-window) {
+  min-width: 0 !important;
+  min-height: 0 !important;
+}
 .splitter {
   position: absolute;
   z-index: 250;

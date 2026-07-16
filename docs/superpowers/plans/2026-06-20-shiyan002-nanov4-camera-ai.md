@@ -10,7 +10,7 @@
 
 ---
 
-The target directory is `C:\Users\62629\Desktop\supermini\shiyan\shiyan002\shiyan002`. The verified reference is `C:\Users\62629\Desktop\supermini\shiyan\shiyan001`. The target is not currently a Git repository, so this plan records verification checkpoints instead of creating commits.
+The target directory is `C:\path\to\shiyan002`. The verified reference is `C:\path\to\shiyan001`. The target is not currently a Git repository, so this plan records verification checkpoints instead of creating commits.
 
 ### Task 1: Establish failing regeneration and model-contract checks
 
@@ -344,7 +344,7 @@ Expected: boundary check passes and all tests pass.
 Run:
 
 ```powershell
-& 'D:\Keil_v5\UV4\UV4.exe' -b 'C:\Users\62629\Desktop\supermini\shiyan\shiyan002\shiyan002\MDK-ARM\shiyan002.uvprojx' -t shiyan002 -j0
+& 'C:\path\to\Keil_v5\UV4\UV4.exe' -b 'C:\path\to\shiyan002\MDK-ARM\shiyan002.uvprojx' -t shiyan002 -j0
 ```
 
 Expected build-log ending: `0 Error(s), 0 Warning(s)` and a fresh `shiyan002.axf` plus `shiyan002.hex`.
@@ -373,7 +373,7 @@ Expected: both commands pass after the final generated-project edits.
 
 - [ ] **Step 1: Verify SWD connectivity under reset**
 
-Use `D:\Keil_v5\ARM\Segger\JLink.exe` with device `STM32H750XB`, interface SWD, 4 MHz initial speed, and connect-under-reset if normal attach fails. Expected: Cortex-M7 core and STM32H750 device are identified without JTAG-chain errors.
+Use `C:\path\to\Keil_v5\ARM\Segger\JLink.exe` with device `STM32H750XB`, interface SWD, 4 MHz initial speed, and connect-under-reset if normal attach fails. Expected: Cortex-M7 core and STM32H750 device are identified without JTAG-chain errors.
 
 - [ ] **Step 2: Download the verified HEX and reset**
 

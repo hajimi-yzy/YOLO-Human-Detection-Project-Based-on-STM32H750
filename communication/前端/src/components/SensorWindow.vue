@@ -12,27 +12,30 @@
     @dragStart="handleDragStart"
     @resizeStart="(e, edge) => resizeHandlers['on' + edge.toUpperCase()]?.(e)"
   >
-    <div class="flex flex-col gap-2.5 h-full min-h-0">
-      <div class="grid grid-cols-4 gap-2 flex-shrink-0">
+    <div class="sensor-content flex flex-col gap-2.5 h-full min-h-0">
+      <div class="sensor-summary flex-shrink-0">
         <div class="data-card text-center">
           <div class="text-[11px] font-medium mb-0.5" style="color: var(--text-tertiary)">温度</div>
-          <div class="text-xl font-bold" style="color: var(--text-primary)">{{ sensorData.temperature ?? '--' }}<span class="text-xs font-normal">°C</span></div>
+          <div class="sensor-value text-xl font-bold" style="color: var(--text-primary)">{{ formatValue(sensorData.temperature, '°C') }}</div>
         </div>
         <div class="data-card text-center">
           <div class="text-[11px] font-medium mb-0.5" style="color: var(--text-tertiary)">湿度</div>
-          <div class="text-xl font-bold" style="color: var(--text-primary)">{{ sensorData.humidity ?? '--' }}<span class="text-xs font-normal">%</span></div>
+          <div class="sensor-value text-xl font-bold" style="color: var(--text-primary)">{{ formatValue(sensorData.humidity, '%') }}</div>
         </div>
         <div class="data-card text-center">
           <div class="text-[11px] font-medium mb-0.5" style="color: var(--text-tertiary)">海拔</div>
-          <div class="text-xl font-bold" style="color: var(--text-primary)">{{ sensorData.altitude ?? '--' }}<span class="text-xs font-normal">m</span></div>
+          <div class="sensor-value text-xl font-bold" style="color: var(--text-primary)">{{ formatValue(sensorData.altitude, 'm') }}</div>
         </div>
         <div class="data-card text-center">
           <div class="text-[11px] font-medium mb-0.5" style="color: var(--text-tertiary)">气压</div>
-          <div class="text-xl font-bold" style="color: var(--text-primary)">{{ sensorData.pressure ?? '--' }}<span class="text-xs font-normal">hPa</span></div>
+          <div class="sensor-value text-xl font-bold" style="color: var(--text-primary)">{{ formatValue(sensorData.pressure, 'hPa') }}</div>
         </div>
       </div>
       <div class="flex-1 min-h-0">
-        <v-chart v-if="chartOption" :option="chartOption" :autoresize="true" style="width:100%;height:100%" />
+        <v-chart v-if="deviceOnline && chartOption" :option="chartOption" :autoresize="true" style="width:100%;height:100%" />
+        <div v-else class="h-full flex items-center justify-center text-sm" style="color: var(--text-tertiary)">
+          {{ deviceOnline ? '等待有效数据' : '设备离线 · NA' }}
+        </div>
       </div>
     </div>
   </MacWindow>
@@ -73,7 +76,11 @@ const { size, w, h, resizeHandlers, setSize } = useResizable(420, 300, props.ini
 
 defineExpose({ setPosition, setSize, x, y, w, h })
 
-const { history, sensorData } = useSensorStore()
+const { online: deviceOnline, history, sensorData } = useSensorStore()
+
+function formatValue(value, unit) {
+  return value == null ? 'NA' : `${value}${unit}`
+}
 
 const chartOption = computed(() => {
   if (!history.value.length) return null
@@ -90,3 +97,24 @@ const chartOption = computed(() => {
   }
 })
 </script>
+
+<style scoped>
+.sensor-content { container-type: inline-size; }
+.sensor-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+@container (max-width: 320px) {
+  .sensor-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .sensor-summary .data-card { padding: 6px 4px; }
+  .sensor-value {
+    font-size: 14px;
+    line-height: 18px;
+    overflow-wrap: anywhere;
+  }
+}
+</style>

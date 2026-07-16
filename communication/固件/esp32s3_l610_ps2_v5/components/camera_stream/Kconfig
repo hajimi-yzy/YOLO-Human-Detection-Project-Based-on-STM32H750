@@ -1,0 +1,110 @@
+menu "L610 UDP Camera Uplink"
+
+    config VIDEO_UDP_SERVER_IP
+        string "Video UDP server IPv4 address"
+        default "192.0.2.10"
+
+    config VIDEO_UDP_SERVER_PORT
+        int "Video UDP server port"
+        range 1 65535
+        default 9091
+
+    config VIDEO_LOCAL_MJPEG_PORT
+        int "SoftAP local MJPEG HTTP port"
+        range 1 65535
+        default 8080
+        help
+            Local-only MJPEG viewer and stream port. With the default SoftAP
+            gateway, open http://192.168.4.1:8080/ or use the raw stream at
+            http://192.168.4.1:8080/live/mjpeg.
+
+    config VIDEO_UDP_PROTOCOL_VERSION
+        int "ESJP protocol version"
+        range 1 3
+        default 1
+        help
+            Version written to the ESJP packet header. Version 1 uses the
+            production 1200-byte application payload. Experimental versions
+            must select their matching sdkconfig defaults overlay.
+
+    config VIDEO_UDP_PAYLOAD_SIZE
+        int "ESJP chunk payload size"
+        range 256 65469
+        default 1200
+        help
+            JPEG bytes carried by one ESJP UDP datagram. Values above the
+            network MTU intentionally exercise lwIP IPv4 fragmentation and
+            require a matching server-side ESJP configuration.
+
+    config VIDEO_UDP_FPS
+        int "Target JPEG upload frame rate"
+        range 1 60
+        default 30
+
+    config VIDEO_UDP_BURST_PACKETS
+        int "UDP packets sent before yielding to RNDIS"
+        range 1 16
+        default 3
+        help
+            Limits each back-to-back UDP burst. The L610 RNDIS path has been
+            observed to accept roughly three packets before its transmit path
+            needs service time.
+
+    config VIDEO_UDP_BURST_YIELD_MS
+        int "RNDIS service time between UDP bursts (ms)"
+        range 0 10
+        default 1
+        help
+            Yield after each packet burst so the USB Host and RNDIS tasks can
+            drain their transmit queues. At a 1000 Hz FreeRTOS tick, 1 ms is
+            the smallest scheduler-backed delay.
+
+    config VIDEO_UDP_FLOW_COUNT
+        int "Parallel UDP flows"
+        range 1 8
+        default 1
+        help
+            Send complete JPEG frames round-robin over multiple connected UDP
+            sockets. Each frame stays on one source port, while the aggregate
+            video rate is distributed across independent five-tuples.
+
+    config VIDEO_UDP_WARMUP_STEP_SECONDS
+        int "Duration of each startup upload-rate step (seconds)"
+        range 0 60
+        default 10
+        help
+            After RNDIS gets an IP address, ramp video through 5, 10 and 20
+            FPS before using the configured maximum. This gives the L610 LTE
+            bearer and RNDIS transmit path time to stabilize. Set to 0 to
+            disable the startup ramp.
+
+    config VIDEO_UDP_EXTENDED_RAMP
+        bool "Use extended RNDIS startup upload-rate ramp"
+        default n
+        help
+            Replace the standard equal-duration 5, 10 and 20 FPS ramp with
+            5 FPS for 15 seconds, 8 FPS for 20 seconds, then 10, 12, 15 and
+            20 FPS for 30 seconds each before using the configured target.
+            Intended for isolated LTE/RNDIS packet-loss experiments.
+
+    choice VIDEO_CAMERA_FRAME_SIZE
+        prompt "OV5640 JPEG frame size"
+        default VIDEO_CAMERA_FRAME_SIZE_VGA
+
+        config VIDEO_CAMERA_FRAME_SIZE_VGA
+            bool "VGA (640x480)"
+
+        config VIDEO_CAMERA_FRAME_SIZE_QVGA
+            bool "QVGA (320x240)"
+    endchoice
+
+    config VIDEO_CAMERA_JPEG_QUALITY
+        int "OV5640 JPEG quality"
+        range 0 63
+        default 12
+        help
+            OV-series JPEG quality scale. Lower values preserve more detail
+            and produce larger JPEG frames; higher values compress more.
+
+
+endmenu

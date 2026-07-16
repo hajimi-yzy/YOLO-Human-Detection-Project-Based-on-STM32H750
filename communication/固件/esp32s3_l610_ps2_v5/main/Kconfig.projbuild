@@ -1,0 +1,46 @@
+menu "Example Configuration"
+
+    config EXAMPLE_USB_RNDIS_DOWNLOAD_SPEED_TEST
+        bool "Enable USB RNDIS Download Speed Test"
+        default n
+        help
+            Enable USB RNDIS Download Speed Test.
+
+    config EXAMPLE_ENABLE_AT_CMD
+        bool "Enable USB RNDIS AT Command"
+        default y
+        help
+            Enable L610 automatic AT configuration before waiting for RNDIS DHCP.
+
+    config EXAMPLE_AT_INTERFACE_NUM
+        depends on EXAMPLE_ENABLE_AT_CMD
+        int "USB RNDIS AT Interface Number"
+        default 7
+        help
+            L610 USB mode 33 commonly exposes AT on interface 7 or 8.
+            Interface 7 is preferred; firmware automatically falls back to interface 8.
+
+    config L610_APN
+        depends on EXAMPLE_ENABLE_AT_CMD
+        string "L610 APN"
+        default "CMNET"
+        help
+            Public APN used for PDP context 1.
+
+    config L610_SOFTAP_SHARE_ENABLE
+        bool "Share L610 internet through Wi-Fi SoftAP/NAPT"
+        default n
+        help
+            Start the Wi-Fi access point only after L610 RNDIS has received
+            an IPv4 address, then route SoftAP clients through that RNDIS
+            interface. Camera profiles keep this disabled unless their
+            profile defaults explicitly enable hotspot sharing.
+
+    config VIDEO_CAMERA_ENABLE
+        bool "Enable OV5640 camera capture and ESJP UDP video"
+        default y
+        help
+            Initializes the OV5640, generates XCLK and starts the continuous
+            JPEG/UDP video task. Turn this off only for isolated UART/L610
+            diagnostics; the regular video firmware keeps it enabled.
+endmenu

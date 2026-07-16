@@ -111,17 +111,17 @@ typedef struct {
 /* ================================================================
  * 系统配置
  * ================================================================ */
-/* 云服务器 */
-#define SERVER_IP_B1  8
-#define SERVER_IP_B2  134
-#define SERVER_IP_B3  38
-#define SERVER_IP_B4  218
+/* 部署地址不得提交到仓库；以下均为 RFC 5737 TEST-NET 占位值。 */
+#define SERVER_IP_B1  192
+#define SERVER_IP_B2  0
+#define SERVER_IP_B3  2
+#define SERVER_IP_B4  1
 
-/* L610 分配给 BW21 的 IP (ECM DHCP, 按实际修改) */
-#define L610_IP_B1  10
-#define L610_IP_B2  74
-#define L610_IP_B3  137
-#define L610_IP_B4  114
+/* L610/BW21 地址也必须由私有部署配置替换。 */
+#define L610_IP_B1  192
+#define L610_IP_B2  0
+#define L610_IP_B3  2
+#define L610_IP_B4  2
 
 /* 端口 */
 #define VIDEO_PORT   9091

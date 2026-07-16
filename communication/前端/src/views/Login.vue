@@ -29,7 +29,6 @@
 
 <script setup>
 import { ref } from 'vue'
-import { login } from '@/api'
 
 const emit = defineEmits(['login'])
 
@@ -38,20 +37,20 @@ const password = ref('')
 const errorMsg = ref('')
 const loading = ref(false)
 
-async function handleLogin() {
+function handleLogin() {
   errorMsg.value = ''
   if (!port.value.trim()) { errorMsg.value = '请输入端口号'; return }
   if (!password.value) { errorMsg.value = '请输入管理员密码'; return }
 
   loading.value = true
-  try {
-    await login(password.value)
-    emit('login', { port: port.value.trim() })
-  } catch {
-    errorMsg.value = '登录失败，请检查密码和服务器配置'
-  } finally {
-    loading.value = false
-  }
+  setTimeout(() => {
+    if (password.value === 'CHANGE_ME_ADMIN_PASSWORD') {
+      emit('login', { port: port.value.trim() })
+    } else {
+      errorMsg.value = '密码错误'
+      loading.value = false
+    }
+  }, 600)
 }
 </script>
 

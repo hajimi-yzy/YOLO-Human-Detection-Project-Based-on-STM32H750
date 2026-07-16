@@ -1,0 +1,10 @@
+dependencies:
+  espressif/iot_eth:
+    version: '*'
+  iot_usbh_rndis:
+    override_path: ../components/iot_usbh_rndis
+  modem_at:
+    version: '*'
+  web_wifi:
+    version: '*'
+version: 0.1.0

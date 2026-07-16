@@ -1,61 +1,51 @@
 # 基于 STM32H750 的 AI 视觉六足救援机器人
 
-面向建筑坍塌、地下管廊、矿井、野外搜救和危险巡检场景的六足机器人原型。系统采用“主控 + AI 视觉 + 4G 通信”分层架构，以 STM32H750、RTOS、OV5640、BMI088、BW21 和 L610 为核心，形成感知、决策、执行与远程通信闭环。
+面向建筑坍塌、地下管廊、矿井和危险巡检场景的六足机器人原型。仓库包含 STM32H750 AI 视觉工程、六足主控工程，以及通信 v5 的 ESP32-S3 固件、aiohttp 服务端和 Vue 3 前端。
 
 ![六足救援机器人样机](docs/images/robot-prototype.jpg)
 
-> 完整设计、硬件、软件和样机成果见 [《基于 STM32H750 的 AI 视觉六足救援机器人技术文档》](docs/基于STM32H750的AI视觉六足救援机器人技术文档.pdf)。
+> 完整设计、硬件、软件和样机成果见 [《基于 STM32H750 的 AI 视觉六足救援机器人技术文档》](docs/基于STM32H750的AI视觉六足救援机器人技术文档.pdf)。通信 v5 的详细说明见 [communication/README.md](communication/README.md) 和 [CHANGELOG_V5.md](CHANGELOG_V5.md)。
 
-## 项目亮点
-
-- **端侧 AI 人员检测**：OV5640 采集图像，STM32H750 通过 X-CUBE-AI 运行 NanoV4 96×96 INT8 模型，板端实测约 8 FPS。
-- **六足运动控制**：18 舵机、逆运动学和多步态规划，配合 BMI088 与姿态滤波提高复杂地形稳定性。
-- **环境与定位感知**：集成温湿度、气压、气体、人体感应和北斗/GPS 数据采集。
-- **昼夜视觉切换**：BH1750 软件 I²C 光照检测、IR-cut 控制、夜间状态输出和 AI 人员检测 GPIO 输出。
-- **4G 视频与遥控**：BW21 负责 H.264 视频编码与 USB CDC ECM 通信，L610 完成 4G 链路，云端提供视频、传感器、定位和控制服务。
-- **远程控制平台**：aiohttp 后端 + Vue 3 前端，支持 WebSocket、MJPEG、地图、传感数据和键盘/面板控制。
-- **失联保护**：通信固件在 500 ms 内未收到移动指令时自动发送停止指令。
-
-## 系统架构
+## 当前系统架构
 
 ```mermaid
 flowchart LR
-    Camera["OV5640 摄像头"] --> Vision["STM32H750 AI 视觉模块"]
-    Vision -->|人员检测状态| Main["STM32H750 主控 + RTOS"]
-    Sensors["BMI088 / 环境 / 气体 / 北斗"] --> Main
-    Radar["360° 激光雷达"] -.接口与代码框架.-> Main
+    VisionCamera["视觉摄像头"] --> Vision["STM32H750 + X-CUBE-AI"]
+    Vision -->|人员检测状态| Main["STM32H750 主控 + FreeRTOS"]
+    Sensors["BMI088 / 环境 / 气体 / GPS"] --> Main
     Main --> Servo["18 舵机六足执行机构"]
-    Main <--> BW21["BW21 视频与通信"]
-    BW21 <--> L610["L610 Cat.1 4G"]
-    L610 <--> Server["aiohttp 云端服务"]
-    Server <--> Web["Vue 3 远程控制平台"]
+    Main <-->|"UART 115200 / ESUT 二进制帧"| ESP["ESP32-S3 + OV5640"]
+    ESP <-->|"USB RNDIS"| L610["L610 Cat.1 4G"]
+    ESP -->|"ESJP JPEG / UDP"| Server["aiohttp 云端服务"]
+    ESP -->|"ESUT 遥测与心跳 / UDP"| Server
+    Server <-->|"HTTP / WebSocket / MJPEG"| Web["Vue 3 控制面板"]
+    ESP -->|"SoftAP + 本地 MJPEG"| Local["现场手机/终端"]
 ```
+
+通信 v5 使用固定在机身上的 OV5640 视角，不提供独立云台控制。ESP32-S3 通过 L610 RNDIS 维持云端视频、遥测和控制链路，同时可按需开启 AP 本地 MJPEG 串流。
+
+## 项目亮点
+
+- **端侧 AI 人员检测**：STM32H750 通过 X-CUBE-AI 运行 NanoV4 96×96 INT8 模型，板端推理约 8 FPS。
+- **六足运动控制**：18 舵机、逆运动学、多步态规划和 BMI088 姿态感知。
+- **环境与定位感知**：统一上报温湿度、海拔、气压、可燃气体、人员检测和 GPS 数据。
+- **ESP32-S3 视频链路**：OV5640 输出 JPEG，使用 ESJP v1/v2 分片经 UDP 上传；服务端校验并直接发布 MJPEG/WebSocket，无需转码。
+- **独立在线心跳**：ESP 每 2 秒上报心跳；即使 STM32 暂无新数据，ESP 仍可在线，缺失字段在服务端和前端显示为 `NA`。
+- **本地与云端串流**：AP 本地 MJPEG 与 L610 云端视频可同时工作。
+- **PS2 一一映射控制**：14 个 PS2 键只传 `down/up`；长按期间前端约每 200 ms 重发 `down`，STM32 以 500 ms 看门狗安全释放。
+- **事件记录**：前端记录疑似幸存者和可燃气体告警，可保存当时视频截图、时间与经纬度。
 
 ## 当前完成状态
 
 | 模块 | 状态 | 说明 |
 | --- | --- | --- |
-| 六足机械与运动控制 | 已完成样机联调 | 支持基础行走、姿态感知和多步态控制 |
-| AI 人员检测 | 已完成板端部署 | NanoV4 INT8，约 8 FPS，LCD 显示检测框与状态 |
-| 昼夜视觉 | 已完成代码集成 | BH1750、IR-cut、夜间状态输出 |
-| 环境与定位 | 已完成代码集成 | 温湿度、气压、气体、人体感应、北斗/GPS |
-| 视频与远程控制 | 已完成链路与平台 | BW21 + L610、视频/状态回传、控制指令下发 |
-| 激光雷达避障 | 待实机联调 | 已保留接口、任务和避障代码框架，不作为已验证功能 |
-
-## 主要性能
-
-| 指标 | 参数 |
-| --- | --- |
-| 最大行进速度 | 约 1.1 m/s（三角步态） |
-| 最大爬坡角度 | 约 30° |
-| 姿态感知 | BMI088 + 卡尔曼/四元数 EKF |
-| AI 推理速度 | 板端实测约 8 FPS |
-| AI 输入 | `int8(1×96×96×3)` |
-| AI 输出 | `int8(1×24×24×5)`，person 单类别 |
-| 模型权重 | 约 48.38 KiB |
-| 激活 RAM | 约 87.43 KiB |
-| 计算量 | 约 14.54 MMACC |
-| 通信方式 | BW21 + L610 Cat.1 4G |
+| STM32H750 AI 视觉 | 已完成板端部署 | NanoV4 INT8、LCD 检测框、人员状态输出 |
+| 六足主控与传感器 | 已完成工程集成 | 步态、舵机、IMU、环境、气体和 GPS |
+| ESP32-S3 通信 v5 | 已完成构建 | OV5640、L610 RNDIS、ESJP、心跳、AP MJPEG、PS2 UART |
+| 云端服务 | 已完成单元测试 | 视频重组、设备在线、遥测、控制接口和 CORS |
+| Vue 3 前端 | 已完成生产构建 | 视频、实时数据、地图、事件、AP 串流和 PS2 控制 |
+| STM32 `type=0x02` 实机联调 | 待完成 | 协议已确定；需在真实主控上接入解析和 500 ms 看门狗 |
+| 激光雷达闭环避障 | 待实机联调 | 仅保留接口和代码框架，不作为已验证能力 |
 
 ## 仓库结构
 
@@ -67,115 +57,112 @@ flowchart LR
 ├─ shiyan002.ioc                       AI 视觉 CubeMX 配置
 ├─ H7_onboard/                         六足机器人主控固件
 │  ├─ MDK-ARM/Hexapod.uvprojx          主控 Keil 工程
-│  ├─ MDK-ARM/USER/                    步态、舵机、姿态、传感器与任务代码
-│  └─ hexapod.ioc                      主控 CubeMX 配置
+│  └─ MDK-ARM/USER/                    步态、舵机、IMU、传感器和任务代码
 ├─ communication/
-│  ├─ 固件/bw21_l610_ecm.c             BW21 + L610 通信固件
-│  ├─ 服务器端/                         aiohttp、UDP/TCP、WebSocket、MJPEG
-│  └─ 前端/                             Vue 3 远程控制平台
+│  ├─ 固件/esp32s3_l610_ps2_v5/       当前 ESP32-S3 通信固件
+│  ├─ 固件/bw21_l610_ecm.c             旧 BW21 方案，仅供 legacy 参考
+│  ├─ 服务器端/                         aiohttp、UDP、WebSocket、MJPEG
+│  └─ 前端/                             Vue 3 远程控制面板
 ├─ tests/、tools/                      AI 后处理测试与辅助工具
 └─ docs/                               技术文档与样机图片
 ```
 
-主控工程仅保留编译所需的 CMSIS/HAL、FreeRTOS、DSP 库和项目源码，未纳入 Keil 中间文件、对象文件及个人 IDE 状态。
-
-## AI 视觉固件
+## STM32H750 AI 视觉工程
 
 ### 模型与处理流程
 
-1. OV5640 通过 DCMI + DMA 连续采集 RGB565 图像。
-2. LCD 通过 SPI6 显示实时画面、FPS、AI 状态和检测框。
-3. 当前画面经中心裁剪与缩放后转换为 96×96 RGB888 INT8 输入。
+1. 摄像头通过 DCMI + DMA 采集图像。
+2. LCD 显示实时画面、FPS、AI 状态和检测框。
+3. 图像经中心裁剪、缩放并转换为 96×96 RGB888 INT8 输入。
 4. X-CUBE-AI 执行 NanoV4 推理。
-5. Anchor-free / FCOS 风格后处理执行质量分数计算、LTRB 解码、局部极大值筛选和 NMS。
-6. 检测结果通过 LCD 与 `AI_PERSON` GPIO 输出；BH1750 根据环境光切换 IR-cut 和夜间状态输出。
+5. 后处理执行质量分数计算、LTRB 解码、局部极大值筛选和 NMS。
+6. 检测结果通过 LCD 和人员状态 GPIO 输出。
 
-模型和生成报告位于：
+模型与生成报告位于：
 
 - `models/nanov4_96_full_int8.tflite`
 - `models/nanov4_96.onnx`
 - `X-CUBE-AI/App/network_generate_report.txt`
 - `Core/User/Src/nanov4_postprocess.c`
 
-### 编译
+使用 Keil MDK-ARM 打开 `MDK-ARM/shiyan002.uvprojx`，选择 `shiyan002` 目标后 Rebuild 并通过 J-Link 或 ST-Link 下载。具体引脚、时钟、DMA 和中断配置以 `shiyan002.ioc` 为准。
 
-1. 使用 Keil MDK-ARM 打开 `MDK-ARM/shiyan002.uvprojx`。
-2. 选择目标 `shiyan002`。
-3. Rebuild 后通过 J-Link 或 ST-Link 下载。
-4. 复位运行，LCD 应显示摄像头画面、FPS、`AI_OK` 和检测结果。
-
-具体引脚、时钟、DMA 和中断配置以 `shiyan002.ioc` 为准。修改 CubeMX 配置并重新生成后，需要确认 `Core/User` 仍包含在 Keil 工程中。
-
-## 六足主控固件
+## 六足主控工程
 
 主控工程基于 STM32H750VBTx 与 FreeRTOS，核心代码位于 `H7_onboard/MDK-ARM/USER/`：
 
-- `TASK/`：步态控制、姿态、传感器、云端、PS2、LED 和雷达任务。
-- `APP/`：腿部逆解、舵机、步态、SC16IS752、AHT20、BMP280、气体、GPS、PIR 和 D6 雷达驱动。
+- `TASK/`：步态、姿态、传感器、PS2、LED 和雷达任务。
+- `APP/`：腿部逆解、舵机、步态、SC16IS752、AHT20、BMP280、气体、GPS、PIR 和 LD6 驱动。
 - `IMU/`：BMI088、卡尔曼滤波、四元数 EKF、PID 和 EEPROM 校准数据。
 
-编译步骤：
+使用 Keil 打开 `H7_onboard/MDK-ARM/Hexapod.uvprojx`。下载前应按真实硬件核对 `H7_onboard/hexapod.ioc`、串口、电平、舵机方向和传感器接线。
 
-1. 使用 Keil MDK-ARM 打开 `H7_onboard/MDK-ARM/Hexapod.uvprojx`。
-2. 选择目标 `hexapod`。
-3. 按实际硬件校对 `H7_onboard/hexapod.ioc`、串口、舵机方向和传感器接线。
-4. Rebuild 并下载到主控板。
+## 通信 v5
 
-## 通信与远程平台
+### STM32 与 ESP32-S3 UART
 
-### 服务端
+正式接口为 `115200 8N1`、3.3 V TTL、必须共地：
 
-服务端默认监听以下端口：
+- STM32 TX → ESP32-S3 GPIO2 / UART1 RX：`type=0x01` 统一传感器与 GPS 快照。
+- STM32 RX ← ESP32-S3 GPIO1 / UART1 TX：`type=0x02` PS2 `button/state`。
+- `type=0x03` 保留但不使用；STM32 不需要发送执行 ACK。
 
-| 端口 | 用途 |
-| --- | --- |
-| `8765` | HTTP、WebSocket、MJPEG |
-| `9091/UDP` | H.264 视频流 |
-| `9092/TCP` | 4G/L610 H.264 兼容接收 |
-| `9093/UDP` | 传感器、GPS 与控制指令 |
+外层帧为 `A5 5A + version + type + JSON 长度 + seq + UTF-8 JSON + CRC16 + 0D 0A`。完整字段、CRC 示例和 STM32 C 参考实现见 [STM32 与 ESP32-S3 UART 对接协议](communication/固件/esp32s3_l610_ps2_v5/docs/STM32_ESP32_UART_INTEGRATION.md)。
 
-启动前必须配置管理员口令：
+### 网络端口
 
-```bash
-cd communication/服务器端
-python -m pip install -r requirements.txt
-export ROBOT_ADMIN_USER=admin
-export ROBOT_ADMIN_PASSWORD='replace-with-a-strong-password'
-python server.py
+| 端口 | 方向 | 用途 |
+| --- | --- | --- |
+| `8765/tcp` | 浏览器 ↔ 服务端 | HTTP、WebSocket、MJPEG |
+| `9091/udp` | ESP → 服务端 | ESJP v1/v2 JPEG 分片；兼容旧 BW21 UDP |
+| `9092/tcp` | 旧设备 → 服务端 | legacy BW21 H.264 兼容入口，可关闭 |
+| `9093/udp` | ESP ↔ 服务端 | ESUT 遥测/心跳与 ESCTL 控制 |
+
+### 构建与烧录
+
+ESP-IDF 5.5.1 构建方法见 [固件 README](communication/固件/esp32s3_l610_ps2_v5/README.md)。公开仓库使用 TEST-NET 地址和 `CHANGE_ME_*` 占位符；只在私有构建副本中填写实际视频服务器、遥测服务器和 AP 凭据。
+
+典型 ESP32-S3 烧录偏移：
+
+```text
+0x0000  bootloader.bin
+0x9000  partition-table.bin
+0x20000 usb_rndis_4g_module.bin
 ```
 
-Windows PowerShell 使用 `$env:ROBOT_ADMIN_USER` 和 `$env:ROBOT_ADMIN_PASSWORD` 设置同名环境变量。安装 `ffmpeg` 后可启用 H.264 到 MJPEG 的降级转码端点。
+始终优先以本次构建生成的 `flasher_args.json` 为准；应用程序偏移必须是 `0x20000`。
 
-### 前端
+## 服务端与前端
+
+服务端保留现有 aiohttp、WebSocket、MJPEG、ESJP/ESUT 和 legacy 兼容逻辑。代码中的登录用户名、密码和 token 已替换为明显的演示占位符，不是生产鉴权方案。
+
+前端配置中的公网 HTTP、WebSocket 和 MJPEG 地址统一替换为 `192.0.2.10` TEST-NET 示例，地图初始坐标为 `0,0`。部署前只在私有副本中换成自己的地址；机器人 SoftAP 的 `192.168.4.1` 属于本地私网结构，予以保留。
+
+完整构建、部署和验证命令见 [communication/README.md](communication/README.md)。
+
+## 安全边界
+
+- 仓库不应包含现场 IP、实际域名、热点口令、管理员密码、有效 token 或含私密配置的预编译固件。
+- 本次公开仓库处理只做脱敏，没有改变已验证的 ESJP/ESUT/ESCTL 协议；公网部署必须用安全组、防火墙、VPN 或专线限制来源。
+- 当前演示登录不能作为公网安全边界，生产环境需要正式鉴权与 HTTPS/WSS。
+- 500 ms 失联停止由 STM32 本地看门狗实现，不能依赖公网服务端作为最后安全边界。
+- 舵机动力、主控逻辑和通信视觉模块应分区供电并共地，避免大电流干扰。
+
+## 验证
 
 ```bash
+# 服务端
+cd communication/服务器端
+python3.8 -m unittest discover -v
+python3.8 -m compileall -q .
+
+# 前端
 cd communication/前端
-npm install
-npm run dev
-# 生产构建
+npm ci
 npm run build
 ```
 
-部署前修改 `communication/前端/src/config/config.js` 中的服务端地址。登录口令只发送到服务端验证，不在前端源码中保存。
-
-### BW21 + L610 固件
-
-固件入口为 `communication/固件/bw21_l610_ecm.c`，使用 BW21 USB Host 连接 L610 ECM 网络接口，并完成：
-
-- GC2053 H.264 硬件编码与视频发送；
-- STM32 UART 传感器/GPS 数据解析与 JSON 封装；
-- 云端控制指令转发为 `F/B/L/R/S` 单字符命令；
-- 500 ms 控制超时自动停止。
-
-烧录前需要按部署环境修改服务器 IP、L610 ECM 地址和网络参数。
-
-## 部署与安全提示
-
-- 当前通信配置中包含项目联调服务器地址，公开部署前应替换为自己的域名或地址。
-- 公网部署必须配置强口令，并建议增加 HTTPS/WSS、反向代理、访问控制和令牌校验。
-- D-Cache 会影响 DCMI DMA 帧缓冲一致性，修改采集链路时需同步检查 cache clean/invalidate。
-- 舵机动力、主控逻辑和通信视觉模块应分区供电并共地，避免舵机大电流干扰。
-- 激光雷达目前仅完成接口与代码框架，接入实物后仍需完成数据校验和闭环避障测试。
+固件使用 `communication/固件/esp32s3_l610_ps2_v5/build_camera_sensor_8fps_q20_ap_local_mjpeg_cloud_ps2_v5.ps1` 在 ESP-IDF 5.5.1 环境构建。
 
 ## 许可说明
 

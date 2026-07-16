@@ -15,29 +15,29 @@
     <div class="flex flex-col gap-1.5 h-full min-h-0">
       <div class="flex items-center justify-between text-[11px] flex-shrink-0">
         <div class="flex items-center gap-1.5">
-          <span class="inline-block w-1.5 h-1.5 rounded-full" :class="wsConnected ? 'bg-green-400' : 'bg-red-400'"></span>
-          <span style="color: var(--text-secondary)">{{ wsConnected ? 'GPS 已连接' : 'GPS 未连接' }}</span>
+          <span class="inline-block w-1.5 h-1.5 rounded-full" :class="gpsOnline ? 'bg-green-400' : 'bg-red-400'"></span>
+          <span style="color: var(--text-secondary)">{{ gpsOnline ? '设备在线' : '设备离线' }}</span>
         </div>
-        <span v-if="position" style="color: var(--text-tertiary)">卫星:{{ position.satellites ?? '-' }}</span>
+        <span style="color: var(--text-tertiary)">卫星:{{ position?.satellites ?? 'NA' }}</span>
       </div>
       <div ref="mapContainer" class="flex-1 min-h-0 rounded-lg overflow-hidden"></div>
       <div class="flex gap-4 text-[10px] flex-shrink-0" style="color: var(--text-tertiary)">
-        <span>经度:{{ position?.lng ?? '--' }}</span>
-        <span>纬度:{{ position?.lat ?? '--' }}</span>
-        <span>速度:{{ position?.speed ?? '--' }}m/s</span>
+        <span>经度:{{ position?.lng ?? 'NA' }}</span>
+        <span>纬度:{{ position?.lat ?? 'NA' }}</span>
+        <span>速度:{{ position?.speed == null ? 'NA' : `${position.speed}m/s` }}</span>
       </div>
     </div>
   </MacWindow>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import L from 'leaflet'
 import MacWindow from './MacWindow.vue'
 import cfg from '@/config/config'
 import { useDraggable } from '@/composables/useDraggable'
 import { useResizable } from '@/composables/useResizable'
-import { useWebSocket } from '@/composables/useWebSocket'
+import { useGpsStore } from '@/composables/useGpsStore'
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
@@ -65,13 +65,7 @@ const { size, w, h, resizeHandlers, setSize } = useResizable(360, 280, props.ini
 
 defineExpose({ setPosition, setSize, x, y, w, h })
 
-const { data: wsData, connected: wsConnected } = useWebSocket('gps', cfg.WS_GPS)
-const position = computed(() => {
-  if (wsData.value && wsData.value.lat != null && wsData.value.lng != null) {
-    return { lat: wsData.value.lat, lng: wsData.value.lng, heading: wsData.value.heading, speed: wsData.value.speed, satellites: wsData.value.satellites }
-  }
-  return null  // 无真实GPS → 显示"--"
-})
+const { online: gpsOnline, position } = useGpsStore()
 
 const mapContainer = ref(null)
 let map = null, marker = null, pathLine = [], pathPolyline = null, ro = null
@@ -89,7 +83,16 @@ onMounted(async () => {
 
 onUnmounted(() => { ro?.disconnect(); map?.remove() })
 
-watch(position, (pos) => { if (pos) updateMarker(pos) })
+watch(position, (pos) => {
+  if (pos) {
+    updateMarker(pos)
+  } else if (marker) {
+    marker.remove()
+    marker = null
+    pathLine = []
+    pathPolyline?.setLatLngs([])
+  }
+})
 
 let robotIcon = null
 function updateMarker(pos) {

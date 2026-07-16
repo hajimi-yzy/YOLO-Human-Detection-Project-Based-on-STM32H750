@@ -8335,7 +8335,7 @@
     "test_name": "",
     "tools": [
       {
-        "arguments": "generate --target stm32h7 --name network -m D:/yolo_training/exports/nanov4/int8_96/nanov4_96_full_int8.tflite --compression high --verbosity 1 -O time --workspace C:/Users/62629/AppData/Local/Temp/mxAI_workspace21720862161570010106339400298634811 --output C:/Users/62629/.stm32cubemx/network_output",
+        "arguments": "generate --target stm32h7 --name network -m C:/path/to/models/nanov4_96_full_int8.tflite --compression high --verbosity 1 -O time --workspace C:/Users/PUBLIC_USER/AppData/Local/Temp/mxAI_workspace_PUBLIC --output C:/Users/PUBLIC_USER/.stm32cubemx/network_output",
         "environment": [
           "STATS_TYPE=X-CUBE-AI"
         ],

@@ -165,17 +165,18 @@ def _handler(conn, addr, queue, loop):
 
 def _feed(data, queue):
     try:
-        if not queue.full():
-            queue.put_nowait(data)
+        while queue.full():
+            queue.get_nowait()
+        queue.put_nowait(data)
     except: pass
 
-def _server(port, queue, loop):
+def _server(port, queue, loop, stop_event):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(('0.0.0.0', port)); s.listen(1); s.settimeout(1.0)
     print(f'[TCP] v34 verbose :{port}', flush=True)
     try:
-        while True:
+        while not stop_event.is_set():
             try: c, a = s.accept()
             except socket.timeout: continue
             except OSError: break
@@ -184,9 +185,15 @@ def _server(port, queue, loop):
         s.close()
 
 async def start_tcp_receiver(port=9092, queue=None):
-    if queue is None: queue = asyncio.Queue(maxsize=30)
-    t = threading.Thread(target=_server, args=(port, queue, asyncio.get_running_loop()), daemon=True)
+    if queue is None: queue = asyncio.Queue(maxsize=1)
+    stop_event = threading.Event()
+    t = threading.Thread(target=_server, args=(port, queue, asyncio.get_running_loop(), stop_event), daemon=True)
     t.start()
     try:
         while t.is_alive(): await asyncio.sleep(1)
-    except asyncio.CancelledError: pass
+    except asyncio.CancelledError:
+        stop_event.set()
+        raise
+    finally:
+        stop_event.set()
+        t.join(timeout=1.5)

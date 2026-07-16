@@ -20,14 +20,6 @@ async function request(path, options = {}) {
   }
 }
 
-// ==================== 登录 ====================
-export function login(password) {
-  return request('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ username: 'admin', password }),
-  })
-}
-
 // ==================== 控制指令 ====================
 export function sendCommand(cmd, params = {}) {
   return request('/command', {
@@ -54,9 +46,26 @@ export function fetchGpsHistory(range = '1h') {
   return request(`/gps/history?range=${range}`)
 }
 
+export function fetchTelemetryLatest() {
+  return request('/telemetry/latest', { cache: 'no-store' })
+}
+
 // ==================== 视频 ====================
 export function getRtspUrl() {
   return cfg.RTSP_URL
+}
+
+export async function fetchVideoSnapshot() {
+  const url = `${cfg.API_BASE}/video/snapshot`
+  const response = await fetch(url, { cache: 'no-store' })
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  const blob = await response.blob()
+  if (!blob.type.startsWith('image/')) throw new Error('Snapshot response is not an image')
+  return {
+    blob,
+    frameId: response.headers.get('X-Frame-Id'),
+    frameSequence: response.headers.get('X-Frame-Sequence'),
+  }
 }
 
 // ==================== 系统 ====================

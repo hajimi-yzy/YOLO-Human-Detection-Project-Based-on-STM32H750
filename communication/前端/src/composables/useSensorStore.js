@@ -1,59 +1,109 @@
-/**
- * 共享传感器数据 Store（模块级单例）
- * LeftPanel、SensorWindow 等组件共享同一份数据和 WS 连接
- */
+/** Shared live telemetry state. Never substitutes mock or stale values. */
 import { ref, computed } from 'vue'
 import cfg from '@/config/config'
 import { getWsClient } from '@/api/websocket'
-import { mockSensorData } from '@/api/mock'
 
-// ==================== 模块级单例状态 ====================
 const data = ref(null)
-const connected = ref(false)
+const connected = ref(false) // WebSocket transport state
+const online = ref(false) // Device telemetry state
 const history = ref([])
 const MAX_HISTORY = 50
 
 let client = null
-let mockTimer = null
+let staleTimer = null
+let apiRefreshTimer = null
+let lastMessageAt = 0
 let started = false
 
+const emptySensor = () => ({
+  gas: null,
+  temperature: null,
+  humidity: null,
+  altitude: null,
+  pressure: null,
+  person_detected: null,
+})
+
+function clearTelemetry() {
+  online.value = false
+  data.value = null
+}
+
 function pushHistory(point) {
+  if (!point.online) return
+  if (point.temperature == null && point.humidity == null) return
   history.value.push({
     time: new Date().toLocaleTimeString(),
-    gas: point.gas?.concentration ?? 0,
-    temp: point.temperature ?? 0,
-    hum: point.humidity ?? 0,
+    gas: point.gas?.concentration ?? null,
+    temp: point.temperature ?? null,
+    hum: point.humidity ?? null,
   })
   if (history.value.length > MAX_HISTORY) history.value.shift()
+}
+
+function applyTelemetry(point) {
+  if (!point || typeof point !== 'object') {
+    clearTelemetry()
+    return
+  }
+  lastMessageAt = Date.now()
+  online.value = point.online === true
+  data.value = online.value ? point : null
+  if (online.value) pushHistory(point)
+}
+
+async function refreshTelemetryFromApi() {
+  if (!cfg.API_BASE) return
+  try {
+    const response = await fetch(`${cfg.API_BASE}/telemetry/latest`, { cache: 'no-store' })
+    if (!response.ok) return
+    const body = await response.json()
+    // The API groups sensor and GPS; this store owns the sensor half.
+    applyTelemetry(body?.data?.sensor)
+  } catch {
+    // WebSocket remains the primary path. A transient HTTP failure must not
+    // erase a still-fresh WebSocket state.
+  }
+}
+
+function startFreshnessWatchdog() {
+  if (staleTimer) return
+  staleTimer = setInterval(() => {
+    if (lastMessageAt && Date.now() - lastMessageAt > cfg.TELEMETRY_STALE_MS) {
+      clearTelemetry()
+    }
+  }, 500)
+}
+
+function startApiFreshnessSync() {
+  if (apiRefreshTimer) return
+  refreshTelemetryFromApi()
+  apiRefreshTimer = setInterval(refreshTelemetryFromApi, 1000)
 }
 
 export function useSensorStore() {
   if (!started) {
     started = true
-    _connect()
+    connect()
   }
 
-  const sensorData = computed(() => {
-    if (data.value) {
-      return {
-        gas: data.value.gas || { concentration: 0, unit: '%LEL', alarm: false },
-        temperature: data.value.temperature ?? null,
-        humidity: data.value.humidity ?? null,
-        altitude: data.value.altitude ?? null,
-        pressure: data.value.pressure ?? null,
-        person_detected: data.value.person_detected ?? 0,
-      }
-    }
-    return mockSensorData()
-  })
+  const sensorData = computed(() => online.value && data.value ? {
+    gas: data.value.gas ?? null,
+    temperature: data.value.temperature ?? null,
+    humidity: data.value.humidity ?? null,
+    altitude: data.value.altitude ?? null,
+    pressure: data.value.pressure ?? null,
+    person_detected: data.value.person_detected ?? null,
+  } : emptySensor())
 
-  return { data, connected, history, sensorData }
+  return { data, connected, online, history, sensorData }
 }
 
-function _connect() {
+function connect() {
+  startFreshnessWatchdog()
+  startApiFreshnessSync()
   if (!cfg.WS_SENSOR) {
-    // 无 WS 地址时启动 mock 定时器
-    _startMock()
+    clearTelemetry()
     return
   }
 
@@ -61,35 +111,24 @@ function _connect() {
     onMessage(raw) {
       try {
         const parsed = JSON.parse(raw)
-        data.value = parsed
-        pushHistory(parsed)
+        applyTelemetry(parsed)
       } catch {
-        data.value = null
+        clearTelemetry()
       }
     },
     onOpen() {
       connected.value = true
+      // A WebSocket connection is not proof that the USART device is online.
+      clearTelemetry()
     },
     onClose() {
       connected.value = false
-      _startMock()
+      clearTelemetry()
     },
     onError() {
       connected.value = false
-      _startMock()
+      clearTelemetry()
     },
   })
   client.connect()
-  _startMock() // mock 作为 fallback，WS 未连接时使用
-}
-
-function _startMock() {
-  if (mockTimer) return
-  mockTimer = setInterval(() => {
-    if (!connected.value) {
-      const mock = mockSensorData()
-      data.value = mock
-      pushHistory(mock)
-    }
-  }, cfg.SENSOR_INTERVAL)
 }
