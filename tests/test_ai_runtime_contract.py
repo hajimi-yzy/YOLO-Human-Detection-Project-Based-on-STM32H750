@@ -88,7 +88,7 @@ def test_frame_counter_advances_only_after_successful_ai_run() -> None:
     assert body.find("g_dbg_ai_count++") > success_guard.start()
 
 
-def test_overlay_reports_ai_ok_and_uses_desktop_thresholds() -> None:
+def test_overlay_reports_ai_ok_and_uses_runtime_thresholds() -> None:
     text = source(AI_SOURCE)
     post = function_body(text, "PostProcessNanoV4")
-    assert re.search(r"NanoV4_Decode\s*\([^;]*0\.50f\s*,\s*0\.50f\s*\)", post)
+    assert re.search(r"NanoV4_Decode\s*\([^;]*0\.35f\s*,\s*0\.40f\s*\)", post)

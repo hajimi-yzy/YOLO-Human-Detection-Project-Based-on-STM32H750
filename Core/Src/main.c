@@ -29,6 +29,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "app_camera_ai.h"
+#include "bh1750_daynight.h"
 #define MX_X_CUBE_AI_Process App_CameraAi_ProcessHook
 /* USER CODE END Includes */
 
