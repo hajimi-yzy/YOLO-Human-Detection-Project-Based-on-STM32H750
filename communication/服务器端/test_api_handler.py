@@ -246,6 +246,22 @@ class CellLocationApiTest(unittest.IsolatedAsyncioTestCase):
             raised.exception.message, "cell_geolocation_quota_exhausted"
         )
 
+    def test_cache_key_ignores_neighbor_scan_changes(self):
+        _, _, first_identities = api_handler._build_unwired_geolocation_request(
+            self.state(), "unit-test-token"
+        )
+        changed = self.state()
+        changed["cells"][0]["cell_id"] = "0011333"
+        _, _, second_identities = api_handler._build_unwired_geolocation_request(
+            changed, "unit-test-token"
+        )
+
+        self.assertNotEqual(first_identities[1:], second_identities[1:])
+        self.assertEqual(
+            api_handler._cell_location_cache_key("unwired", first_identities),
+            api_handler._cell_location_cache_key("unwired", second_identities),
+        )
+
     async def test_concurrent_unwired_requests_share_one_paid_lookup(self):
         original_state = api_handler.get_modem_4g_state
         original_fetch = api_handler._fetch_and_cache_cell_location
@@ -296,8 +312,8 @@ class CellLocationApiTest(unittest.IsolatedAsyncioTestCase):
             return {"lat": payload["lat"], "lng": 2.0}
 
         api_handler._fetch_cell_location = fake_fetch
-        key_old = ("unwired", (999, 99, 1, 1), ())
-        key_new = ("unwired", (999, 99, 2, 2), ())
+        key_old = ("unwired", (999, 99, 1, 1))
+        key_new = ("unwired", (999, 99, 2, 2))
         try:
             await asyncio.gather(
                 api_handler._fetch_and_cache_cell_location(

@@ -57,8 +57,8 @@ frontend, source archive, URL, or logs. Unwired requests use at most seven LTE
 cells with the serving cell first. The raw L610 GTCCINFO level is not sent as
 signal strength because it is not dBm. Google results are cached for five
 minutes; Unwired results are cached for one hour by default to protect a small
-developer quota. A changed serving/neighbor cell identity bypasses the old
-cache immediately. `CELL_LOCATION_CACHE_SECONDS` can override either default
+developer quota. A changed serving-cell identity bypasses the old cache; a
+volatile neighbor-cell scan does not. `CELL_LOCATION_CACHE_SECONDS` can override either default
 with a value from 30 to 86400 seconds.
 
 `/ws/control` accepts the existing movement commands plus an acknowledged AP

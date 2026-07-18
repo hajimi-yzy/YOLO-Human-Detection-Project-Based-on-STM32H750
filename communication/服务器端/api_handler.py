@@ -365,6 +365,11 @@ def _cell_location_cache_ttl(provider):
     return seconds if 30 <= seconds <= 86400 else default
 
 
+def _cell_location_cache_key(provider, identities):
+    """Cache by serving LTE cell, not volatile neighbor scan results."""
+    return (provider, identities[0])
+
+
 async def _fetch_cell_location(provider, credential, payload, serving,
                                identities):
     timeout = aiohttp.ClientTimeout(total=10)
@@ -498,9 +503,10 @@ async def _resolve_cell_location():
             required=['CELL_GEOLOCATION_PROVIDER=google or unwired'],
         )
 
-    # Neighbor order can change between scans. Canonicalize it so reordering
-    # alone does not create a new paid provider request during the cache TTL.
-    cache_key = (provider, identities[0], tuple(sorted(identities[1:])))
+    # Keep neighbor cells in the provider request, but do not use them to
+    # invalidate the paid lookup cache. Neighbor scans commonly fluctuate
+    # while the serving cell and the resulting coarse location are unchanged.
+    cache_key = _cell_location_cache_key(provider, identities)
     cached = _cell_location_cache.get(cache_key)
     if (cached and time.monotonic() - cached['cached_at']
             <= _cell_location_cache_ttl(provider)):
