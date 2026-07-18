@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==================== CSS 变量：浅色/深色主题 ==================== */
+:root {
+  --bg-primary: #f2f2f7;
+  --bg-secondary: rgba(255, 255, 255, 0.72);
+  --bg-tertiary: rgba(255, 255, 255, 0.45);
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --text-tertiary: #aeaeb2;
+  --border-color: rgba(0, 0, 0, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --shadow-window: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --control-bg: rgba(255, 255, 255, 0.78);
+  --traffic-red: #ff5f57;
+  --traffic-yellow: #fdbc40;
+  --traffic-green: #32c840;
+}
+.dark {
+  --bg-primary: #1c1c1e;
+  --bg-secondary: rgba(44, 44, 46, 0.72);
+  --bg-tertiary: rgba(44, 44, 46, 0.45);
+  --text-primary: #f5f5f7;
+  --text-secondary: #a1a1a6;
+  --text-tertiary: #636366;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(44, 44, 46, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --shadow-window: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  --control-bg: rgba(44, 44, 46, 0.82);
+}
+
+/* ==================== 全局基础 ==================== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+  height: 100vh; width: 100vw;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+#app { width: 100%; height: 100%; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 2px; }
+.dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); }
+
+/* ==================== 磨砂玻璃窗口（flex 列布局，body 自动撑满） ==================== */
+.glass-window {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-window);
+  z-index: 200;
+  pointer-events: auto;
+  overflow: hidden;
+}
+.glass-window-header {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  min-height: 38px;
+  padding: 0 12px;
+  cursor: grab;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 10px 10px 0 0;
+  background: rgba(0,0,0,0.03);
+}
+.dark .glass-window-header { background: rgba(255,255,255,0.03); }
+.glass-window-body {
+  flex: 1;
+  padding: 10px 14px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* 缩放手柄 */
+.resize-handle { position: absolute; z-index: 10; }
+
+/* 红绿灯 */
+.traffic-lights { display: flex; gap: 8px; flex-shrink: 0; }
+.traffic-btn { width: 12px; height: 12px; border-radius: 50%; border: none; cursor: pointer; transition: opacity 0.15s; padding: 0; }
+.traffic-btn:hover { opacity: 0.8; }
+.traffic-btn.close { background: var(--traffic-red); }
+.traffic-btn.minimize { background: var(--traffic-yellow); }
+.traffic-btn.maximize { background: var(--traffic-green); }
+
+/* PS2 按键 */
+.ps2-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px; background: rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.08);
+  cursor: pointer; transition: all 0.12s; font-weight: 600; font-size: 13px;
+  color: var(--text-secondary);
+}
+.ps2-btn:hover { background: rgba(0,122,255,0.12); border-color: rgba(0,122,255,0.3); color: #007aff; }
+.ps2-btn:active, .ps2-btn.active { background: rgba(0,122,255,0.2); border-color: #007aff; color: #007aff; transform: scale(0.95); }
+.dark .ps2-btn { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.08); }
+.dark .ps2-btn:hover { background: rgba(0,122,255,0.18); border-color: rgba(0,122,255,0.35); }
+
+/* 数据卡片 */
+.data-card {
+  background: rgba(0,0,0,0.03); border-radius: 8px; padding: 12px 14px;
+  border: 1px solid rgba(0,0,0,0.04);
+}
+.dark .data-card { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.06); }
+
+/* 动画 */
+.window-enter-active { transition: all 0.3s ease-out; }
+.window-leave-active { transition: all 0.2s ease-in; }
+.window-enter-from { opacity: 0; transform: scale(0.9); }
+.window-leave-to { opacity: 0; transform: scale(0.85); }

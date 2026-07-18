@@ -1,0 +1,73 @@
+menu "Unified USART Telemetry"
+
+    config TELEMETRY_UART_ENABLE
+        bool "Enable framed sensor + GPS USART uplink"
+        default y
+
+    config TELEMETRY_UART_SHARED_CONSOLE_TEST
+        depends on TELEMETRY_UART_ENABLE
+        bool "TEMPORARY: receive telemetry on the console UART"
+        default n
+        help
+            Test-only mode for a single CH340/TTL port. Uses the configured
+            ESP console UART without remapping pins, so the same port can
+            print logs and receive ESUT frames. Never enable this in the
+            deployed controller wiring profile.
+
+    config TELEMETRY_UART_NUM
+        depends on TELEMETRY_UART_ENABLE
+        int "UART controller number"
+        range 1 2
+        default 1
+
+    config TELEMETRY_UART_TX_GPIO
+        depends on TELEMETRY_UART_ENABLE
+        int "UART TX GPIO (ESP32 -> controller)"
+        range 0 48
+        default 1
+
+    config TELEMETRY_UART_RX_GPIO
+        depends on TELEMETRY_UART_ENABLE
+        int "UART RX GPIO (controller -> ESP32)"
+        range 0 48
+        default 2
+
+    config TELEMETRY_UART_BAUD
+        depends on TELEMETRY_UART_ENABLE
+        int "UART baud rate"
+        range 9600 921600
+        default 115200
+
+    config TELEMETRY_UART_FRAME_TIMEOUT_MS
+        depends on TELEMETRY_UART_ENABLE
+        int "Maximum time from frame header to complete frame"
+        range 20 5000
+        default 300
+
+    config TELEMETRY_HEARTBEAT_INTERVAL_MS
+        depends on TELEMETRY_UART_ENABLE
+        int "ESP online heartbeat interval (ms)"
+        range 500 30000
+        default 2000
+        help
+            The ESP sends an ESUT/1 heartbeat through L610 even when STM32
+            has not supplied a sensor frame. Server-side ESP online status
+            is based on these heartbeats, not on STM32 data availability.
+
+    config TELEMETRY_DEVICE_ID
+        depends on TELEMETRY_UART_ENABLE
+        string "Telemetry device ID"
+        default "esp32s3-01"
+
+    config TELEMETRY_UDP_SERVER_IP
+        depends on TELEMETRY_UART_ENABLE
+        string "Telemetry UDP server IPv4 address"
+        default "192.0.2.10"
+
+    config TELEMETRY_UDP_SERVER_PORT
+        depends on TELEMETRY_UART_ENABLE
+        int "Telemetry UDP server port"
+        range 1 65535
+        default 9093
+
+endmenu

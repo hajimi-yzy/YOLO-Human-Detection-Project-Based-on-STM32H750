@@ -1,0 +1,15 @@
+# ESP-IDF generated build output and dependency cache
+/build/
+/managed_components/
+/firmware_binaries/
+
+# Local build output
+/build-*.log
+/build-output.log
+/build-error.log
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
